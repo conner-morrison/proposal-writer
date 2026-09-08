@@ -1,0 +1,19 @@
+# Per-job working files, regenerated on every proposal
+milestones.jpg
+my_approach.jpg
+milestones-job.html
+approach-job.html
+
+# Job queue records: contain pasted job descriptions and drafted proposals
+.jobs/
+
+# Source documents that belong to other people
+Marketing_Dashboard_Scoping_Document.docx
+
+# Personal source documents
+*.pdf
+
+# Editor and OS noise
+.DS_Store
+*.swp
+__pycache__/

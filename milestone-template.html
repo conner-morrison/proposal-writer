@@ -1,0 +1,109 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1600px;height:900px;background:#EEF2F7;
+ font-family:"Liberation Sans",Arial,Helvetica,sans-serif;color:#0B2545;overflow:hidden}
+.wrap{padding:40px 56px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+h1{font-size:46px;letter-spacing:-.8px;font-weight:700}
+.sub{font-size:20px;color:#5A6B82;font-weight:400;margin-top:8px}
+.flow{font-size:17px;color:#0B6BCB;font-weight:700;letter-spacing:2.2px;text-align:right;line-height:1.6}
+.rule{height:5px;background:linear-gradient(90deg,#0B6BCB,#3FA7D6 55%,#0E8A5F);border-radius:3px;margin:18px 0 28px}
+.cards{display:flex;gap:26px}
+.card{flex:1;background:#fff;border:1px solid #DCE4EE;border-radius:20px;
+ box-shadow:0 6px 22px rgba(11,37,69,.07);padding:30px 30px 26px;display:flex;flex-direction:column}
+.badge{width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#0B6BCB,#3FA7D6);
+ color:#fff;font-size:27px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+h2{font-size:31px;letter-spacing:-.4px;font-weight:700;line-height:1.15;margin-bottom:18px}
+.lbl{font-size:15px;font-weight:700;letter-spacing:2.4px;color:#8494A8;margin-bottom:13px}
+ul{list-style:none;margin-bottom:24px}
+.get{height:180px}
+li{font-size:21px;line-height:1.4;padding-left:26px;position:relative;margin-bottom:11px;color:#17324F}
+li:before{content:"";position:absolute;left:0;top:10px;width:9px;height:9px;border-radius:50%;background:#0B6BCB}
+.sep{height:1px;background:#E4EAF2;margin:2px 0 22px}
+.chk li{color:#12405F}
+.chk li:before{content:"";left:0;top:7px;width:14px;height:8px;border-radius:0;background:none;
+ border-left:3.5px solid #0E8A5F;border-bottom:3.5px solid #0E8A5F;transform:rotate(-45deg)}
+.chk .lbl{color:#0E8A5F}
+.spacer{flex:1}
+.foot{margin-top:24px;display:flex;justify-content:space-between;align-items:center;
+ font-size:18px;color:#5A6B82}
+.foot b{color:#0B2545}
+</style></head><body><div class="wrap">
+
+<div class="head">
+ <div><h1>Azure to Fabric Migration</h1><div class="sub">Three milestones, each one verifiable before the next begins</div></div>
+ <div class="flow">MAP &nbsp;&rsaquo;&nbsp; MIGRATE<br>VALIDATE &nbsp;&rsaquo;&nbsp; HAND OVER</div>
+</div>
+<div class="rule"></div>
+
+<div class="cards">
+
+ <div class="card">
+  <div class="badge">1</div>
+  <h2>Assess<br>&amp; Map</h2>
+  <div class="lbl">YOU GET</div>
+  <ul class="get">
+   <li>Pipelines, datasets, reports inventoried</li>
+   <li>Dependency map: what breaks if it moves</li>
+   <li>Wave plan, lowest risk first</li>
+   <li>Do-not-migrate list</li>
+  </ul>
+  <div class="sep"></div>
+  <div class="chk">
+   <div class="lbl">HOW YOU MEASURE</div>
+   <ul>
+    <li>Blast radius known per workload</li>
+    <li>Plan approved before anything moves</li>
+   </ul>
+  </div>
+ </div>
+
+ <div class="card">
+  <div class="badge">2</div>
+  <h2>First Wave<br>Live</h2>
+  <div class="lbl">YOU GET</div>
+  <ul class="get">
+   <li>Low-risk workloads running in Fabric</li>
+   <li>Fabric and Azure running in parallel</li>
+   <li>Automated output diffs</li>
+   <li>Rollback path per wave</li>
+  </ul>
+  <div class="sep"></div>
+  <div class="chk">
+   <div class="lbl">HOW YOU MEASURE</div>
+   <ul>
+    <li>Row counts and measures match</li>
+    <li>Live reports stayed up throughout</li>
+   </ul>
+  </div>
+ </div>
+
+ <div class="card">
+  <div class="badge">3</div>
+  <h2>Cutover<br>&amp; Handover</h2>
+  <div class="lbl">YOU GET</div>
+  <ul class="get">
+   <li>Remaining waves migrated</li>
+   <li>Legacy services decommissioned</li>
+   <li>Capacity right-sized, refreshes staggered</li>
+   <li>Runbook and documentation</li>
+  </ul>
+  <div class="sep"></div>
+  <div class="chk">
+   <div class="lbl">HOW YOU MEASURE</div>
+   <ul>
+    <li>Reports match pre-migration baseline</li>
+    <li>No throttling at peak refresh</li>
+    <li>Your team runs it without me</li>
+   </ul>
+  </div>
+ </div>
+
+</div>
+
+<div class="foot">
+ <div>Fabric &middot; OneLake &middot; Synapse &middot; Data Factory &middot; Power BI &middot; Entra &middot; Bicep</div>
+ <div><b>Nothing cuts over until the diffs are clean.</b></div>
+</div>
+
+</div></body></html>

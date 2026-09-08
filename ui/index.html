@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposal Writer</title>
+<style>
+:root{
+  --bg:#EEF2F7; --panel:#fff; --ink:#0B2545; --muted:#5A6B82; --line:#DCE4EE;
+  --accent:#0B6BCB; --accent2:#3FA7D6; --ok:#0E8A5F; --warn:#B4690E; --bad:#C0392B;
+  --shadow:0 6px 22px rgba(11,37,69,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1622; --panel:#131F2E; --ink:#E8F0FA; --muted:#93A6BD; --line:#243449;
+    --accent:#4FA3F0; --accent2:#3FA7D6; --ok:#3FCF97; --warn:#E0A24A; --bad:#F0705C;
+    --shadow:0 6px 22px rgba(0,0,0,.35);
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Liberation Sans",-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;
+  line-height:1.45;padding:28px 24px 40px}
+.wrap{max-width:1380px;margin:0 auto}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+h1{font-size:30px;letter-spacing:-.5px}
+.sub{color:var(--muted);font-size:15px;margin-top:4px}
+.rule{height:4px;border-radius:3px;margin:14px 0 22px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2) 55%,var(--ok))}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow);padding:20px 20px 18px}
+h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+fieldset{border:0;margin-bottom:18px}
+legend{font-size:13px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.opts{display:flex;flex-wrap:wrap;gap:9px}
+.opt{position:relative}
+.opt input{position:absolute;opacity:0;width:0;height:0}
+.opt span{display:block;border:1.5px solid var(--line);border-radius:10px;padding:9px 14px;
+  cursor:pointer;font-size:15px;user-select:none;transition:.12s}
+.opt span:hover{border-color:var(--accent)}
+.opt input:checked + span{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);
+  color:var(--accent);font-weight:700}
+.opt input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+input[type=text]{width:100%;background:var(--bg);color:var(--ink);border:1.5px solid var(--line);
+  border-radius:12px;padding:11px 14px;font-size:15px;font-family:inherit}
+input[type=text]:focus{outline:none;border-color:var(--accent)}
+textarea{width:100%;background:var(--bg);color:var(--ink);border:1.5px solid var(--line);
+  border-radius:12px;padding:13px 14px;font-size:15px;line-height:1.5;resize:vertical;
+  font-family:inherit}
+textarea:focus{outline:none;border-color:var(--accent)}
+#jd{min-height:200px}
+#screening{min-height:96px}
+#output{min-height:430px;font-size:15px;white-space:pre-wrap}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button{border:0;border-radius:10px;padding:11px 18px;font-size:15px;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:.12s}
+.primary{background:var(--accent);color:#fff}
+.primary:hover{filter:brightness(1.08)}
+.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.ghost:hover{border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--bg);
+  border:1px solid var(--line);font-size:14px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status b{color:var(--ink)}
+.status.ok b{color:var(--ok)} .status.warn b{color:var(--warn)} .status.bad b{color:var(--bad)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);
+  margin-right:8px;vertical-align:middle}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+.dot.busy{background:var(--accent);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.head2{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.count.over{color:var(--bad);font-weight:700}
+.hint{font-size:13px;color:var(--muted);margin-top:10px}
+.legend2{font-size:13px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);
+  margin:16px 0 9px}
+.job{border:1.5px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;
+  font-size:14px;background:transparent;color:var(--ink);font-weight:400;text-align:left}
+.job:hover{border-color:var(--accent);color:var(--accent)}
+.job b{font-weight:700}
+.job .st{color:var(--muted);font-size:12px}
+.q{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;
+  background:var(--bg)}
+.q.ignored{opacity:.45}
+.qhead{display:flex;gap:10px;align-items:flex-start}
+.qhead input[type=checkbox]{margin-top:4px;width:16px;height:16px;accent-color:var(--muted);
+  cursor:pointer;flex:none}
+.qtext{font-size:14px;line-height:1.45}
+.qassume{display:block;font-size:12px;color:var(--muted);margin-top:4px}
+.q input[type=text]{margin-top:9px;font-size:14px;padding:8px 11px}
+.q.ignored input[type=text]{pointer-events:none}
+.sa{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;
+  background:var(--bg)}
+.sa .sq{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:7px;line-height:1.4}
+.sa .sabody{font-size:14px;line-height:1.5;white-space:pre-wrap;margin-bottom:9px}
+.sa button{padding:7px 13px;font-size:13px}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;
+  font-size:12px;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>Proposal Writer</h1>
+    <div class="sub">Pick a guide, pick a person, paste the job description.</div>
+  </div>
+  <div class="count" id="mode">loading…</div>
+</header>
+<div class="rule"></div>
+
+<div class="grid">
+
+  <section class="panel">
+    <h2>Input</h2>
+
+    <fieldset>
+      <legend>Proposal guide</legend>
+      <div class="opts" id="guides"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Person</legend>
+      <div class="opts" id="people"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Client name <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional, used in the greeting)</span></legend>
+      <input id="client" type="text" placeholder="e.g. Rebecca, or leave blank for &quot;Hi there,&quot;">
+    </fieldset>
+
+    <fieldset>
+      <legend>Job description</legend>
+      <textarea id="jd" placeholder="Paste the job description here."></textarea>
+    </fieldset>
+
+    <fieldset style="margin-bottom:0">
+      <legend>Screening questions <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional, answered separately)</span></legend>
+      <textarea id="screening" placeholder="Paste the client's own questions here, one per line. Each gets its own answer with its own copy button."></textarea>
+    </fieldset>
+
+    <div class="row">
+      <button class="primary" id="go">Write proposal</button>
+      <button class="ghost" id="pause" disabled>Pause</button>
+      <button class="ghost" id="stop" disabled>Stop</button>
+      <button class="ghost" id="copyPrompt">Copy prompt</button>
+      <button class="ghost" id="clear">Clear</button>
+    </div>
+
+    <div class="status" id="status"><span class="dot"></span>Starting up…</div>
+    <div id="qWrap" style="display:none">
+      <div class="legend2">Open questions <span id="qCount" class="count"></span></div>
+      <div id="questions"></div>
+      <div class="row">
+        <button class="primary" id="qSubmit">Submit and rewrite</button>
+        <button class="ghost" id="qIgnoreAll">Ignore all</button>
+      </div>
+    </div>
+
+    <div class="hint">In bridge mode <b>Write proposal</b> hands the job to the Claude Code session
+      watching this queue, and the proposal lands here when it's written. <b>Copy prompt</b> is the
+      fallback if that session isn't running.</div>
+  </section>
+
+  <section class="panel">
+    <div class="head2">
+      <h2 style="margin:0">Proposal (copy-ready)</h2>
+      <span class="count" id="count">0 characters</span>
+    </div>
+    <textarea id="output" placeholder="The finished proposal appears here, already converted to Unicode bold so it pastes into Upwork with formatting intact."></textarea>
+    <div class="row">
+      <button class="primary" id="copyOut">Copy proposal</button>
+      <button class="ghost" id="convert">Convert markdown</button>
+      <button class="ghost" id="clearOut">Clear</button>
+    </div>
+    <div class="hint">The count is measured on the markdown draft, the way the guide checks it, so
+      it runs about 4 characters per bold span above what's in the box. Hard limit 2000.</div>
+    <div id="saWrap" style="display:none">
+      <div class="legend2">Screening answers <span id="saCount" class="count"></span></div>
+      <div id="sanswers"></div>
+    </div>
+
+    <div id="recentWrap" style="display:none">
+      <div class="legend2">Recent jobs</div>
+      <div class="opts" id="recent"></div>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { guides: [], people: [], mode: "manual" };
+
+/* ---------- Unicode sans-serif bold, the style used on the Upwork profile ---------- */
+const A = 0x1D5D4, a = 0x1D5EE, zero = 0x1D7EC;
+function toBold(text){
+  let out = "";
+  for (const ch of text){
+    const c = ch.codePointAt(0);
+    if (c >= 65 && c <= 90)        out += String.fromCodePoint(A + c - 65);
+    else if (c >= 97 && c <= 122)  out += String.fromCodePoint(a + c - 97);
+    else if (c >= 48 && c <= 57)   out += String.fromCodePoint(zero + c - 48);
+    else out += ch;
+  }
+  return out;
+}
+function markdownToCopyReady(md){
+  return md.replace(/\*\*([\s\S]+?)\*\*/g, (_, inner) => toBold(inner));
+}
+/* Count by code point, so Unicode bold letters count as one character each. */
+const plainLength = (text) => [...text].length;
+
+/* The guide's 2000 limit is checked on the markdown draft, which is 4 characters longer
+   per bold span than the converted text. Keep the markdown so the count stays honest. */
+let sourceMarkdown = null;
+
+/* Current bridge job, and the pause/stop flags the buttons drive. */
+const run = { jobId: null, paused: false, stopped: false };
+
+function setRunButtons(active){
+  $("go").disabled = active;
+  $("pause").disabled = !active;
+  $("stop").disabled = !active;
+  $("pause").textContent = run.paused ? "Resume" : "Pause";
+}
+
+function setStatus(msg, kind){
+  const el = $("status");
+  el.className = "status" + (kind ? " " + kind : "");
+  el.innerHTML = '<span class="dot ' + (kind || "") + '"></span>' + msg;
+}
+
+function countedLength(){
+  return sourceMarkdown !== null
+    ? plainLength(sourceMarkdown)
+    : plainLength($("output").value);
+}
+
+function updateCount(){
+  const n = countedLength();
+  const el = $("count");
+  el.textContent = n.toLocaleString() + " characters";
+  el.title = sourceMarkdown !== null
+    ? "measured on the markdown draft, the way the guide checks it"
+    : "measured on the text in the box";
+  el.classList.toggle("over", n > 2000);
+}
+
+function remembered(key){
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function remember(key, value){
+  try { localStorage.setItem(key, value); } catch { /* private window, fine */ }
+}
+
+function radios(hostId, items, name){
+  const host = $(hostId);
+  host.innerHTML = "";
+  const saved = remembered("pw." + name);
+  const savedExists = items.some(it => it.id === saved);
+  items.forEach((item, i) => {
+    const label = document.createElement("label");
+    label.className = "opt";
+    const input = document.createElement("input");
+    input.type = "radio"; input.name = name; input.value = item.id;
+    if (savedExists ? item.id === saved : i === 0) input.checked = true;
+    input.addEventListener("change", () => remember("pw." + name, item.id));
+    const span = document.createElement("span");
+    span.textContent = item.name;
+    span.title = item.file;
+    label.append(input, span);
+    host.append(label);
+  });
+}
+const picked = (name) => {
+  const el = document.querySelector('input[name="' + name + '"]:checked');
+  return el ? el.value : "";
+};
+
+async function loadConfig(){
+  try {
+    const res = await fetch("/api/config");
+    const cfg = await res.json();
+    state.guides = cfg.guides; state.people = cfg.people; state.mode = cfg.mode;
+    radios("guides", cfg.guides, "guide");
+    radios("people", cfg.people, "person");
+    $("mode").textContent = cfg.mode === "api"
+      ? "API mode · " + cfg.model
+      : "bridge mode · Claude Code writes it";
+    if (cfg.mode === "api") setStatus("Ready. <b>API mode</b>, proposals generate here.", "ok");
+    else setStatus("Ready. <b>Bridge mode</b>: jobs go to the Claude Code session.", "ok");
+  } catch (err) {
+    setStatus("<b>Server unreachable.</b> Start it with ./run-ui.sh", "bad");
+  }
+}
+
+async function post(path, body){
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({error: "bad response"}));
+  return {ok: res.ok, data};
+}
+const payload = () => ({guide: picked("guide"), person: picked("person"),
+                        jd: $("jd").value, client: $("client").value,
+                        screening: $("screening").value});
+
+$("go").addEventListener("click", async () => {
+  if (!$("jd").value.trim()) return setStatus("<b>Paste a job description first.</b>", "warn");
+  const person = state.people.find(p => p.id === picked("person"));
+  $("go").disabled = true;
+  setStatus("Writing for <b>" + (person ? person.name : picked("person")) + "</b>…", "busy");
+  const {ok, data} = await post("/api/generate", payload());
+  if (!ok){
+    setRunButtons(false);
+    if (data.mode === "manual")
+      return setStatus("<b>No API key.</b> Use Copy prompt instead.", "warn");
+    return setStatus("<b>Failed:</b> " + (data.error || "unknown error"), "bad");
+  }
+  if (data.job){
+    qJob = data.job; qCount = 0;
+    $("questions").innerHTML = ""; $("qWrap").style.display = "none";
+    $("sanswers").innerHTML = ""; $("saWrap").style.display = "none";
+    loadRecent(false); return waitForJob(data.job);
+  }
+  finish(data.proposal);
+});
+
+function finish(markdown){
+  run.jobId = null; run.paused = false; run.stopped = false;
+  setRunButtons(false);
+  sourceMarkdown = (markdown || "").trim();
+  $("output").value = markdownToCopyReady(sourceMarkdown);
+  updateCount();
+  const n = countedLength();
+  setStatus("Done. <b>" + n.toLocaleString() + " characters</b>" +
+            (n > 2000 ? ", over the 2000 limit" : ", inside the limit") + ".",
+            n > 2000 ? "warn" : "ok");
+}
+
+/* Bridge mode: the job sits in the queue until the Claude Code session writes it. */
+async function waitForJob(id){
+  run.jobId = id; run.paused = false; run.stopped = false;
+  setRunButtons(true);
+  setStatus("Sent to Claude Code as job <b>" + id + "</b>, waiting…", "busy");
+  const started = Date.now();
+  while (true){
+    await new Promise(r => setTimeout(r, 1500));
+    if (run.stopped) return;
+    if (run.paused){
+      setStatus("Job <b>" + id + "</b> paused. It keeps running, press Resume to watch again.",
+                "warn");
+      continue;
+    }
+    let job;
+    try { job = await (await fetch("/api/job/" + id)).json(); }
+    catch { continue; }
+    if ((job.questions || []).length !== qCount || job.id !== qJob) renderQuestions(job);
+    if (job.status === "done"){
+      loadRecent(false); renderQuestions(job); renderScreening(job);
+      return finish(job.proposal);
+    }
+    if (job.status === "cancelled"){
+      run.jobId = null; setRunButtons(false);
+      loadRecent(false);
+      return setStatus("Job <b>" + id + "</b> stopped.", "warn");
+    }
+    if (job.status === "error"){
+      run.jobId = null; setRunButtons(false);
+      return setStatus("<b>Job failed:</b> " + (job.note || "unknown"), "bad");
+    }
+    const mins = Math.floor((Date.now() - started) / 60000);
+    const secs = Math.floor((Date.now() - started) / 1000) % 60;
+    const elapsed = mins ? mins + "m " + secs + "s" : secs + "s";
+    setStatus("Job <b>" + id + "</b>: " + (job.note || job.status) + " · " + elapsed, "busy");
+  }
+}
+
+$("pause").addEventListener("click", () => {
+  if (!run.jobId) return;
+  run.paused = !run.paused;
+  $("pause").textContent = run.paused ? "Resume" : "Pause";
+  if (!run.paused) setStatus("Watching job <b>" + run.jobId + "</b> again…", "busy");
+});
+
+$("stop").addEventListener("click", async () => {
+  if (!run.jobId) return;
+  const id = run.jobId;
+  run.stopped = true; run.jobId = null; run.paused = false;
+  setRunButtons(false);
+  try { await fetch("/api/job/" + id + "/cancel", {method: "POST"}); } catch {}
+  loadRecent(false);
+  setStatus("Job <b>" + id + "</b> stopped.", "warn");
+});
+
+$("copyPrompt").addEventListener("click", async () => {
+  if (!$("jd").value.trim()) return setStatus("<b>Paste a job description first.</b>", "warn");
+  const {ok, data} = await post("/api/prompt", payload());
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown error"), "bad");
+  await navigator.clipboard.writeText(data.prompt);
+  setStatus("Prompt copied. <b>Paste it into Claude Code</b>, then paste the reply here.", "ok");
+});
+
+$("copyOut").addEventListener("click", async () => {
+  const text = $("output").value;
+  if (!text.trim()) return setStatus("<b>Nothing to copy yet.</b>", "warn");
+  await navigator.clipboard.writeText(text);
+  setStatus("Proposal copied. <b>Ready to paste into Upwork.</b>", "ok");
+});
+
+$("convert").addEventListener("click", () => {
+  sourceMarkdown = $("output").value;
+  $("output").value = markdownToCopyReady(sourceMarkdown);
+  updateCount();
+  setStatus("Converted to <b>copy-ready</b> Unicode bold.", "ok");
+});
+
+$("clear").addEventListener("click", () => {
+  $("jd").value = ""; $("screening").value = ""; $("client").value = "";
+  setStatus("Input cleared.", "");
+});
+$("clearOut").addEventListener("click", () => { $("output").value = ""; sourceMarkdown = null; updateCount(); setStatus("Output cleared.", ""); });
+
+/* Pasting raw markdown into the output box converts it on the spot. */
+$("output").addEventListener("paste", (e) => {
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  if (text && text.includes("**")){
+    e.preventDefault();
+    sourceMarkdown = text;
+    const el = $("output");
+    const s = el.selectionStart, t = el.selectionEnd;
+    el.value = el.value.slice(0, s) + markdownToCopyReady(text) + el.value.slice(t);
+    updateCount();
+    setStatus("Pasted markdown, <b>converted to copy-ready</b>.", "ok");
+  }
+});
+$("output").addEventListener("input", () => { sourceMarkdown = null; updateCount(); });
+
+async function loadRecent(autoload){
+  let jobs = [];
+  try { jobs = (await (await fetch("/api/jobs")).json()).jobs || []; } catch { return; }
+  const wrap = $("recentWrap"), host = $("recent");
+  if (!jobs.length){ wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  host.innerHTML = "";
+  jobs.forEach(j => {
+    const b = document.createElement("button");
+    b.className = "job";
+    b.innerHTML = "<b>" + j.person + "</b> · " + j.id +
+                  ' <span class="st">' + j.status + "</span>";
+    b.title = j.note || "";
+    b.addEventListener("click", () => openJob(j.id));
+    host.append(b);
+  });
+  if (autoload){
+    const newest = jobs.find(j => j.status === "done");
+    if (newest) openJob(newest.id, true);
+  }
+}
+
+function renderScreening(job){
+  const items = job.screening_answers || [];
+  const wrap = $("saWrap"), host = $("sanswers");
+  if (!items.length){ wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  $("saCount").textContent = items.length + (items.length === 1 ? " answer" : " answers");
+  host.innerHTML = "";
+  items.forEach((it, i) => {
+    const ready = markdownToCopyReady(it.answer.trim());
+    const box = document.createElement("div");
+    box.className = "sa";
+    const q = document.createElement("div");
+    q.className = "sq";
+    q.textContent = (i + 1) + ". " + it.question;
+    const body = document.createElement("div");
+    body.className = "sabody";
+    body.textContent = ready;
+    const btn = document.createElement("button");
+    btn.className = "ghost";
+    btn.textContent = "Copy answer";
+    btn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(ready);
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = "Copy answer"; }, 1200);
+    });
+    box.append(q, body, btn);
+    host.append(box);
+  });
+}
+
+let qJob = null, qCount = 0;
+
+/* Claude always ships a best-effort draft first. Anything it had to assume shows up
+   here: answer what you care about, tick the rest to ignore, then rewrite. */
+function renderQuestions(job){
+  const qs = job.questions || [];
+  const wrap = $("qWrap"), host = $("questions");
+  qJob = job.id; qCount = qs.length;
+  if (!qs.length){ wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  $("qCount").textContent = qs.length + (qs.length === 1 ? " item" : " items");
+  host.innerHTML = "";
+  qs.forEach(q => {
+    const box = document.createElement("div");
+    box.className = "q" + (q.ignored ? " ignored" : "");
+    box.dataset.id = q.id;
+
+    const head = document.createElement("div");
+    head.className = "qhead";
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = !!q.ignored; cb.title = "Ignore this one";
+    cb.addEventListener("change", () => box.classList.toggle("ignored", cb.checked));
+    const label = document.createElement("div");
+    label.className = "qtext";
+    label.append(document.createTextNode(q.text));
+    if (q.assumption){
+      const a = document.createElement("span");
+      a.className = "qassume";
+      a.textContent = "Assumed for the draft: " + q.assumption;
+      label.append(a);
+    }
+    head.append(cb, label);
+
+    const ans = document.createElement("input");
+    ans.type = "text";
+    ans.placeholder = "Your answer, or leave blank";
+    ans.value = q.answer || "";
+
+    box.append(head, ans);
+    host.append(box);
+  });
+}
+
+async function submitAnswers(){
+  if (!qJob) return;
+  const answers = [...document.querySelectorAll("#questions .q")].map(box => ({
+    id: Number(box.dataset.id),
+    ignored: box.querySelector("input[type=checkbox]").checked,
+    answer: box.querySelector("input[type=text]").value
+  }));
+  const {ok, data} = await post("/api/job/" + qJob + "/answers", {answers});
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+  const answered = answers.filter(a => !a.ignored && a.answer.trim()).length;
+  setStatus("Sent " + answered + " answer" + (answered === 1 ? "" : "s") +
+            ", rewriting job <b>" + qJob + "</b>…", "busy");
+  waitForJob(qJob);
+}
+$("qSubmit").addEventListener("click", submitAnswers);
+$("qIgnoreAll").addEventListener("click", () => {
+  document.querySelectorAll("#questions .q").forEach(box => {
+    const cb = box.querySelector("input[type=checkbox]");
+    cb.checked = true; box.classList.add("ignored");
+  });
+});
+
+async function openJob(id, quiet){
+  let job;
+  try { job = await (await fetch("/api/job/" + id)).json(); }
+  catch { return setStatus("<b>Could not load job " + id + ".</b>", "bad"); }
+  renderQuestions(job); renderScreening(job);
+  if (job.status !== "done")
+    return setStatus("Job <b>" + id + "</b> is " + job.status + ": " + (job.note || ""), "warn");
+  finish(job.proposal);
+  if (quiet) setStatus("Loaded the latest proposal, job <b>" + id + "</b>. Ready to copy.", "ok");
+}
+
+loadConfig();
+loadRecent(true);
+updateCount();
+</script>
+</body>
+</html>

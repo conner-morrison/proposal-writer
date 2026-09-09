@@ -94,6 +94,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
   width:100%;height:58px;display:flex;flex-direction:column;justify-content:center;
   overflow:hidden}
 .job:hover{border-color:var(--accent);color:var(--accent)}
+.job.active{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent);
+  background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.job.active b{color:var(--accent)}
 .job b{font-weight:700;display:block;line-height:1.3;margin-bottom:3px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .job .st{color:var(--muted);font-size:12px;line-height:1.2;
@@ -359,6 +362,7 @@ $("go").addEventListener("click", async () => {
 });
 
 function finish(markdown, job){
+  if (job && job.id){ openJobId = job.id; markActiveJob(); }
   run.jobId = null; run.paused = false; run.stopped = false;
   setRunButtons(false);
   sourceMarkdown = (markdown || "").trim();
@@ -491,14 +495,24 @@ async function loadRecent(autoload){
     sub.className = "st";
     sub.textContent = meta.join(" · ");
     b.append(title, document.createElement("br"), sub);
+    b.dataset.job = j.id;
     b.title = j.id + (j.note ? " — " + j.note : "");
     b.addEventListener("click", () => openJob(j.id));
     host.append(b);
   });
+  markActiveJob();
   if (autoload){
     const newest = jobs.find(j => j.status === "done");
     if (newest) openJob(newest.id, true);
   }
+}
+
+let openJobId = null;
+
+function markActiveJob(){
+  document.querySelectorAll("#recent .job").forEach(b => {
+    b.classList.toggle("active", b.dataset.job === openJobId);
+  });
 }
 
 function renderScreening(job){
@@ -606,6 +620,8 @@ async function openJob(id, quiet){
   let job;
   try { job = await (await fetch("/api/job/" + id)).json(); }
   catch { return setStatus("<b>Could not load job " + id + ".</b>", "bad"); }
+  openJobId = id;
+  markActiveJob();
   $("jd").value = job.jd || "";
   $("screening").value = job.screening || "";
   $("client").value = job.client || "";

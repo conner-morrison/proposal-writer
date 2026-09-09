@@ -99,35 +99,69 @@ Each numbered item is one paragraph, separated by a blank line.
 
 **1. Attractive starter. No bold anywhere in it.**
 
-- `**Hi** 👋` on its own line, or `**Hi [name]** 👋` when the post gives you a name.
+- `Hi 👋` on its own line, or `Hi [name] 👋` when the post gives you a name. **Not bolded.**
 - Then, immediately, the closest thing already built: "I've built ..." and the real project.
 - Describe it in the client's terms, not ours. If they say listing tool, the sentence should
   contain their words, not our internal framing.
 - Two or three sentences. This is proof, not a portfolio tour.
 
-**2. The key point of their project. Bold the quoted phrases from the job description, and quote
-as much of them as reads naturally.**
+**2. The key point of their project. Bold the quoted phrase from the job description.**
 
-- Short. Sharp. No long explanation. Keep the key point intact rather than paraphrasing it away.
-- One sentence referencing what you found in Phase 1 point 4.
-- Show empathy, approval and appreciation, briefly, if the key point is a smart decision on their
-  part. Tie it to where they are now and what this project is for, or to our own experience.
-- Then show why it matters, proved by something already built.
-- In one line: this paragraph explains why we found their post genuinely interesting, and earns
-  that with evidence rather than flattery.
+**This paragraph is where the Phase 1 point 3 read gets used.** Confident, interested in, proud of,
+suffering from, willing to do next. Each of those calls for a different move, and every move has to
+carry a phrase pointing at work already done. An observation about the client with no experience
+behind it is flattery, and it reads like it.
 
-**3. The solution, as our approach. Clearly ordered steps. No bold.**
+| What you found in Phase 1 | What this paragraph does with it |
+| --- | --- |
+| **Proud of** or **confident at** something | Acknowledge it, specifically and in one clause. If they offered that thing to you, say plainly that it will help. |
+| **Interested in** something | Meet the interest with substance from our own former work, not with agreement. |
+| **Suffering from** something, and it is the key point | Propose the solution, grounded in what has been built before. |
+| **Willing** to go further, more tasks, ongoing work | Agree with it, where doing so doesn't cut against the main idea. |
 
-A shape that works, to be varied per job rather than copied:
+**Their materials are an announcement, not a request.** When they have offered research, findings,
+samples or access, say what it will do for the work: "the findings and sample photos you mentioned
+will shorten the first week." Never "send them over" here. Asking belongs in the close, and only if
+the close is an ask, so putting a request here spends one of your asks in the wrong paragraph.
 
-> "The most important thing is X. The first thing to do is A. Across the whole build we need B, C
-> and D, and to get there we need E, F and G."
+Rules for the paragraph itself:
 
-Structure it so the client can follow the order at a glance. Vary the structure to fit the job and
-the client: a careful client wants sequence and checkpoints; a direct one wants three lines.
+- **Quote only the key part, not the whole sentence.** Find the few words that carry the point and
+  bold those. A long quotation buries the thing you were pointing at.
+- **Placement is optional.** It can open the paragraph, but it doesn't have to. Dropping it into
+  the middle of your own sentence usually reads more naturally than leading with a quotation.
+- Short and sharp. Every sentence here does one of the four jobs in the table. **If a sentence does
+  none of them, cut it.** This is the paragraph that fills up with pleasant, useless writing.
+- The whole thing explains why their post was genuinely interesting, and earns that with evidence
+  rather than compliments.
+
+**3. The solution, as our approach. A numbered list, never a block of prose. No bold anywhere in
+this paragraph, including the word Approach.**
+
+Lay it out exactly like this:
+
+```
+Approach
+1. ...
+2. ...
+3. ...
+```
+
+- **Two to four steps**, depending on the size of the project. Three is usual. Four only when the
+  work genuinely has four distinct phases; two when it honestly has two.
+- One line per step, in the order they happen, so the client can follow the sequence at a glance.
+- The reasoning that would have gone into a prose paragraph belongs inside the step lines, not
+  around them.
+- Vary the depth to fit the client: a careful client wants the checkpoint in each step, a direct
+  one wants the step and nothing else.
 
 **4. Bold sub-headline: `Main thing you can get`**
 
+- **This is the only bolded sub-title in the whole proposal.** Nothing else gets one. Bolding a
+  second or third heading dilutes this block until it stops standing out, which defeats the point
+  of singling it out. The bold quotes in paragraph 2 are emphasis inside prose, not titles, and
+  don't count against this.
+- Do not import the habit from `general.md`, which bolds every block. That is a different guide.
 - What the client gets out of hiring us specifically. Benefits, in their language.
 - Frame it in their terms: their timeline, their budget, their risk, their team's workload.
 - This is the block that separates us from every other bidder, so it must not read as generic.
@@ -135,8 +169,23 @@ the client: a careful client wants sequence and checkpoints; a direct one wants 
 **5. Their questions, answered.**
 
 - Only when the post asks questions or demands specific inclusions.
-- Format as a short reminder of the question, then the answer. The client must be able to find
-  their own question at a glance, because it is what they care about most.
+- Label it `Answers to your questions`, **unbolded**.
+- One item per question, each starting with `- `, a short reminder of the question ending in a
+  colon, then a line break, then the answer:
+
+```
+Answers to your questions
+- Why I'd be a good fit:
+That measurement work is most of what I do.
+- What I'd need from you:
+The sample photos and your findings.
+```
+
+- **If they ask about similar projects, that is already answered in paragraph 1** and does not need
+  its own item here. Either leave it out or point back to it in a few words. Repeating it wastes
+  the client's attention on something they have already read.
+- The client must be able to find their own question at a glance, because it is what they care
+  about most.
 - **This paragraph may push the proposal past 300 words, and that is correct.** Never drop one of
   their questions to protect a word count.
 
@@ -149,8 +198,14 @@ the client: a careful client wants sequence and checkpoints; a direct one wants 
 - Combine the estimate with our reasoning, so it reads as judgement rather than a guess:
   "roughly G for D, H for E, so X in total, because in my experience the part that takes longest
   here is ..."
+- **No bolded label on this block either.** It carries weight through position and content.
 - The order matters. Leading with the number reads as a quote; leading with the reasoning reads as
-  advice. Choose deliberately.
+  advice. The test is what the client asked of you:
+  - **Reasoning first** when they admit they don't know what the work costs, or asked for someone
+    with more expertise than them. They want to be walked to the number, and arriving at it after
+    the breakdown makes it a conclusion rather than a demand.
+  - **Number first** when they named a budget, set a range, or are purely price-comparing against
+    other bids and need the figure findable in a scan.
 - Word it professionally and acceptably. This is the paragraph that decides whether they hire us.
 
 **7. Tech stack.**
@@ -162,16 +217,88 @@ the client: a careful client wants sequence and checkpoints; a direct one wants 
   ours. A short list reads as focus; an exhaustive one reads as a resume.
 - Only ever name what the person profile supports.
 
-**8. Ending.**
+**8. Ending. Short. Two sentences is usually plenty.**
 
-- Draft three questions, then test each one:
-  1. Can the person reading actually answer it?
-  2. Does asking it prove something a rival could not have known to ask?
-  3. Does it make replying easier rather than harder?
-- Fold **the best single question into the closing sentence**. Do not run a separate question
-  block against the call to action; two competing asks resolve to neither.
-- The close should read like a person wrote it to another person. Warm, direct, easy to answer.
-- If no question passes the tests, ask for fifteen minutes instead.
+Three ways to close. **Pick whichever leads this client furthest toward the next step, and never
+default to one shape across every proposal.** If the post already names a next step, that outranks
+the other two.
+
+---
+
+**Option 1. Propose a verification step.**
+
+The purpose is to prove the approach on a small scope, using what they already have, before either
+side commits. **Present it as part of the service**, the step that assures them the proposal
+actually holds against their requirement.
+
+- **Why the word "free" is there.** The whole offer rests on the client risking nothing on either
+  side of the exchange. They hand over one small thing they already have, and they pay nothing to
+  find out whether the approach works. Say both halves out loud, because an unstated price is
+  still a question in their head, and a question is a reason not to reply.
+- **The ask must cost them no effort either.** It has to be something already sitting on their
+  machine: existing photos, a report they already run, a file they already have. Nothing to
+  prepare, nothing to produce, nothing to think about. If they'd have to make something for you,
+  the offer has stopped being free in the only sense that matters to them.
+- **Say it with certainty, not as a favour.** You are running it free because you already know it
+  holds, not because you are discounting to win the work. "Send me three and I'll run them free
+  and tell you what fails" reads as confidence. "I'd be happy to do a free sample for you" reads
+  as pleading. Same word, opposite effect.
+- **If you need nothing from them:** say you'll run the test free on their agreement, and what it
+  will show.
+- **If you need something:** ask for the smallest thing that would expose the hard part.
+
+One shape that works often, though not the only one:
+
+1. Ask for a small, bounded sample of their own hardest material. Name the number, and frame it as
+   their worst case, so they pick what would break it rather than what flatters it.
+2. Promise a specific diagnostic back, free and said so, of a kind only someone who understands
+   the problem could offer.
+3. Say why it tells them more than the proposal does, so it reads as confidence.
+
+The model, for a client whose problem is garment photos:
+
+> "Send me three of your hardest garments, the ones you'd expect to break it, and I'll run them
+> free and tell you which the check would reject and why. That'll tell you more about whether I'm
+> the right person than anything else I can write here."
+
+**The unit changes with the job, and so can the shape.** Three counties for a scraper, one property
+for an analytics audit, the messiest document for an extraction pipeline, one "this number looks
+wrong" case for a lineage job, the slowest page for a performance job. Never copy the garment
+sentence into a job that isn't about garments.
+
+**When that shape doesn't fit the job or the approach you proposed, build a different verification
+that does.** Run the first rule against their existing data and report where it disagrees.
+Reconcile one month against their own books. Stand up one integration end to end and show the
+output. Replay one week of their history. The test should be the first step of the approach in
+paragraph 3, shrunk to something they can judge in days.
+
+---
+
+**Option 2. The single best question.**
+
+Use this when there is a genuinely open decision only they can make, and knowing the answer would
+make the solution materially closer to what they actually need. Draft three, then test each:
+
+1. Can the person reading actually answer it?
+2. Does asking it prove something a rival could not have known to ask?
+3. Does it make replying easier rather than harder?
+
+Fold the survivor into the closing sentence.
+
+---
+
+**Option 3. Take the next step they named.**
+
+When the post describes what happens next, a demo walkthrough, a paid test task, a code challenge,
+a call, a video, go at it directly and with appetite. They have told you the path, so walking it
+beats inventing one. Be specific about what you'd show or do, not merely willing.
+
+---
+
+**Rules across all three.** One ask only. Never stack an offer with a question, or either with a
+request for a call: three asks in a paragraph that should carry one resolve to none of them. The
+close should read like a person wrote it to another person, warm, direct, and easy to act on. If
+nothing above fits, ask for fifteen minutes.
 
 **9. Sign off**
 

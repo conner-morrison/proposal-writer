@@ -39,6 +39,25 @@ MSG_SEQ = [0]  # monotonic id so the watcher can poll for anything new
 JOBS_DIR = ROOT / ".jobs"
 
 
+SKIP_LINES = ("summary", "overview", "about the job", "job description")
+
+
+def derive_title(jd: str, limit: int = 46) -> str:
+    """Best-effort label from the job description, used until a better one is posted."""
+    for raw in jd.strip().splitlines():
+        line = raw.strip(" \t-•*#").strip()
+        low = line.lower()
+        if not line or low in SKIP_LINES:
+            continue
+        if low.startswith("needs to hire"):
+            continue
+        if len(line) <= limit:
+            return line
+        cut = line[:limit].rsplit(" ", 1)[0]
+        return (cut or line[:limit]) + "..."
+    return "Untitled job"
+
+
 def new_job(guide_id, person_id, jd, client="", screening=""):
     job = {
         "id": uuid.uuid4().hex[:8],
@@ -46,8 +65,10 @@ def new_job(guide_id, person_id, jd, client="", screening=""):
         "person": person_id,
         "client": client.strip(),
         "jd": jd.strip(),
+        "title": derive_title(jd),
         "screening": screening.strip(),
         "screening_answers": [],
+        "images": None,          # None = unknown, [] = none built, [names] = built
         "messages": [],
         "questions": [],
         "status": "queued",
@@ -73,6 +94,8 @@ def load_jobs():
             job = json.loads(f.read_text(encoding="utf-8"))
         except Exception:
             continue
+        if not job.get("title"):
+            job["title"] = derive_title(job.get("jd", ""))
         if job.get("status") == "working":
             # nobody is holding it any more, put it back in the queue
             job["status"] = "queued"
@@ -217,6 +240,11 @@ class Handler(BaseHTTPRequestHandler):
             if not f.is_file():
                 return self._send(500, "ui/index.html is missing", "text/plain; charset=utf-8")
             return self._send(200, f.read_text(encoding="utf-8"), "text/html; charset=utf-8")
+        if path == "/favicon.png":
+            f = UI / "favicon.png"
+            if not f.is_file():
+                return self._send(404, {"error": "no favicon"})
+            return self._send(200, f.read_bytes(), "image/png")
         if path == "/api/config":
             return self._send(
                 200,
@@ -231,7 +259,8 @@ class Handler(BaseHTTPRequestHandler):
             with JOBS_LOCK:
                 rows = sorted(JOBS.values(), key=lambda j: j["created"], reverse=True)
             return self._send(200, {"jobs": [
-                {k: j[k] for k in ("id", "guide", "person", "status", "note", "created")}
+                {k: j.get(k) for k in
+                 ("id", "guide", "person", "status", "note", "created", "title", "images")}
                 for j in rows[:20]
             ]})
         if path.startswith("/api/messages/since"):
@@ -298,7 +327,14 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     job["proposal"] = data.get("proposal") or ""
                     job["status"] = "done"
-                    job["note"] = "written by Claude Code"
+                    job["note"] = ("final version, no further questions"
+                                   if job.get("status_was_revising")
+                                   else "written by Claude Code")
+                    if data.get("title"):
+                        job["title"] = str(data["title"]).strip()[:60]
+                    if "images" in data:
+                        imgs = data.get("images")
+                        job["images"] = list(imgs) if isinstance(imgs, list) else []
                 save_job(job)
             return self._send(200, {"ok": True})
 
@@ -352,6 +388,7 @@ class Handler(BaseHTTPRequestHandler):
                         q["answer"] = str(a.get("answer") or "").strip()
                         q["ignored"] = bool(a.get("ignored"))
                 job["status"] = "revising"
+                job["status_was_revising"] = True
                 job["note"] = "answers submitted, writing the final version"
                 save_job(job)
             return self._send(200, {"ok": True})

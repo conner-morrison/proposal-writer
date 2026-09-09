@@ -128,10 +128,34 @@ Keep each answer short, specific, and in the same copy-ready form as the proposa
 the same as your own open questions: the client wrote these and they get read before the cover
 letter, so treat them as the more important half.
 
-**Ask as few questions as possible.** Three is a lot. Only raise something where a different
-answer would materially change the proposal, and always state the assumption you shipped with. If
-a question would be more useful asked of the client than of the user, it belongs in the proposal
-instead.
+**One round of questions. Version 1 carries all of them, version 2 carries none.**
+
+Do not ration questions in the first version and then discover more after the answers come back.
+That forces the user through a second round for a proposal that was supposed to be final, and it
+means the first sweep was lazy. Before posting version 1, walk this checklist and raise everything
+that would change the proposal:
+
+1. **Profile gaps**: tools, platforms or experience the post requires that the person profile
+   doesn't contain.
+2. **Claim safety**: anything asserted that the profile only partly supports.
+3. **Project selection**: which past work to lead with, when two of them fit.
+4. **Price**: whether to quote at all, and what number.
+5. **Availability and model**: hours, start date, fixed versus hourly, where the post is silent.
+6. **Tone and positioning**: where two defensible readings of the client would produce different
+   proposals.
+7. **Deliverables**: images or not, stack line or not, when the rules leave it genuinely open.
+8. **Ambiguity in the post** that changes the approach.
+9. **Client asks we can't satisfy from the profile**: references, certifications, a portfolio
+   link, a named metric.
+10. **Anything only the user can do**: record a video, grant repo access, confirm a rate.
+
+Every question states the assumption already shipped in the draft, so an unanswered question still
+leaves a complete proposal.
+
+**After the answers come back, rewrite and post the final version with no new questions.** If
+something surfaces during the rewrite, decide it yourself and say so in the note rather than
+opening a second round. A question that would be better asked of the client belongs in the
+proposal, not the panel.
 
 Post the proposal back as **markdown**; the page converts it to Unicode bold itself. Jobs are
 mirrored to `.jobs/<id>.json`. Build `milestones.jpg` and `my_approach.jpg` as usual and send them

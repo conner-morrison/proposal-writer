@@ -97,7 +97,8 @@ section leaves dead space at the bottom of the frame.
 - **Tone:** professional, confident, friendly. Impressive without bragging. Warm without filler.
 - **Use contractions.** Write "I've", "I'm", "it's", "don't", "you'll", never "I have built",
   "I am", "it is", "do not", "you will". The long form reads stiff and formal. This applies to the proposal, the images, and any follow-up answer. The stack
-  headline is therefore **I'm fully comfortable with**, not "I am fully comfortable with".
+  headline, when the stack line is used at all, is therefore **I'm fully comfortable with**, not
+  "I am fully comfortable with".
 - **Open with `**Hi** 👋` on its own line,** then a blank line, then the opening proof block
   described in Required structure.
 - **Always sign off with `Best,` and the name on separate lines** as the final two lines, name
@@ -161,8 +162,24 @@ Rules for this block:
 - Three simple steps, specific to their build, under an **Approach** heading. Not a generic SDLC.
 - One improvement or alternative tool they did not ask for. This is where deep expertise shows.
   Head this block **Key point you can get**, never "One improvement" or "Suggestion".
-- The exact stack: languages, frameworks, databases, chosen from their requirements. Introduce it
-  with **I'm fully comfortable with**, never the word "Stack".
+- **The stack line is conditional, not automatic.** Include it only when the post enumerates
+  technologies. Cut it when it doesn't.
+
+  **Include it when** the client listed languages, frameworks, databases or named tools, because
+  they will scan for those tokens coming back and the absence reads as a gap. It is strongest with
+  niche tools: anyone can write "data pipelines," but Stape, CCXT, Analytics Canvas, SAP Ariba or
+  Pentaho prove you have been in the room. When you include it, mirror their exact words in their
+  order, and don't pad with adjacent tools they didn't mention.
+
+  **Cut it when** the client is non-technical or wrote a short post with no technologies in it.
+  They can't evaluate the line, it costs fifteen words of a limited budget, and it is the most
+  resume-like thing in the whole proposal. Upwork's own guidance is that a proposal is not a
+  resume. Spend those words on the outcome instead.
+
+  Note the cost either way: every tool you list is fair game on the call. Only name what the person
+  profile supports or what he is genuinely ready to be questioned on.
+
+  When it is included, introduce it with **I'm fully comfortable with**, never the word "Stack".
 
 **4. Transparent timeline and process**
 - A realistic estimate in days or weeks.

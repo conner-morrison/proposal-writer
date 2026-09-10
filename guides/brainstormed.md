@@ -358,9 +358,17 @@ yourself, and post it. Then surface what you had to guess.
   them back to `/api/job/<id>/screening_answers` so each gets its own copy button. These are read
   before the cover letter, so treat them as the more important half.
 - **Our open questions** go to `/api/job/<id>/questions`, each with the assumption already shipped
-  in the draft. These are only ever questions for the user: gaps in the person profile, whether a
-  claim is safe, which project to lead with, price and availability calls. Questions for the
-  client belong in the proposal.
+  in the draft. Questions for the client belong in the proposal, never here.
+- **The profile is a summary, not an inventory.** Nobody records every project of their career in
+  a markdown file, and the user only sends jobs the person is genuinely confident in, so the job
+  having been sent is itself the evidence. A gap in the profile is a gap in the document, not in
+  the person. **Never ask whether he can do something the post requires, and never soften a claim
+  because the profile doesn't happen to mention it.** Write it confidently and move on.
+- **Cover as much as you can yourself, and ask only what is sensitive.** Price and rate, anything
+  only the user can physically do, a specific fact that would be publicly falsified such as a
+  named client or a language the post will test on a call, and a genuine either/or in positioning.
+  Never ask which project to lead with, whether to ship images, whether to include a stack line,
+  or how to word something. Those are yours.
 - **One round only.** Version 1 carries every question; version 2 carries none. Sweep the full
   checklist in `CLAUDE.md` before posting the first draft: profile gaps, claim safety, which
   project leads, price, availability, tone, deliverables, ambiguity in the post, client asks the

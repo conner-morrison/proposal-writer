@@ -16,6 +16,8 @@ import sys
 import threading
 import time
 import uuid
+import datetime
+import html
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -37,6 +39,57 @@ JOBS = {}
 JOBS_LOCK = threading.Lock()
 MSG_SEQ = [0]  # monotonic id so the watcher can poll for anything new
 JOBS_DIR = ROOT / ".jobs"
+PROPOSALS = ROOT / "proposals"   # readable local archive, one markdown file per proposal
+QUEUE_DIR = ROOT / ".queue"      # jobs pulled off the relay, waiting to be written
+
+# History retention. Jobs are kept in .jobs/*.json on this machine, never in the
+# browser, and older ones are purged on a daily boundary anchored to Japan time.
+JST = datetime.timezone(datetime.timedelta(hours=9))
+PURGE_AT_JST = (20, 30)      # 8:30pm JST
+RETENTION_DAYS = 3           # anything older than this at the boundary goes
+
+
+def next_purge_epoch(now=None):
+    """Epoch seconds of the next 20:30 JST boundary."""
+    now = now or datetime.datetime.now(tz=JST)
+    target = now.replace(hour=PURGE_AT_JST[0], minute=PURGE_AT_JST[1],
+                         second=0, microsecond=0)
+    if target <= now:
+        target += datetime.timedelta(days=1)
+    return target.timestamp()
+
+
+def purge_old_jobs():
+    """Drop jobs older than RETENTION_DAYS. A pending boost is never purged."""
+    cutoff = time.time() - RETENTION_DAYS * 86400
+    removed = []
+    with JOBS_LOCK:
+        for job_id, job in list(JOBS.items()):
+            if job.get("created", 0) >= cutoff:
+                continue
+            # Still waiting on a boost the user has not ticked off: keep it.
+            if job.get("boost") == "yes" and not job.get("done"):
+                continue
+            JOBS.pop(job_id, None)
+            f = JOBS_DIR / f"{job_id}.json"
+            if f.is_file():
+                f.unlink()
+            # The markdown in proposals/ is deliberately left alone. Retention
+            # trims the working list, it does not throw away finished work.
+            removed.append(job_id)
+    if removed:
+        print(f"  purged {len(removed)} job(s) older than {RETENTION_DAYS} days", flush=True)
+    return removed
+
+
+def purge_loop():
+    while True:
+        wait = max(30, next_purge_epoch() - time.time())
+        time.sleep(wait)
+        try:
+            purge_old_jobs()
+        except Exception as exc:
+            print(f"  purge failed: {exc}", flush=True)
 
 
 SKIP_LINES = ("summary", "overview", "about the job", "job description")
@@ -58,17 +111,24 @@ def derive_title(jd: str, limit: int = 46) -> str:
     return "Untitled job"
 
 
-def new_job(guide_id, person_id, jd, client="", screening=""):
+def new_job(guide_id, person_id, jd, client="", screening="", url="", title=""):
     job = {
         "id": uuid.uuid4().hex[:8],
         "guide": guide_id,
         "person": person_id,
         "client": client.strip(),
         "jd": jd.strip(),
-        "title": derive_title(jd),
+        # A job off the relay knows its real Upwork title. Only guess when
+        # there is nothing to go on, which is a hand-pasted description.
+        "title": (title or "").strip() or derive_title(jd),
+        "title_from_post": bool((title or "").strip()),
         "screening": screening.strip(),
         "screening_answers": [],
         "images": None,          # None = unknown, [] = none built, [names] = built
+        "url": url.strip(),      # Upwork job URL, from the input box or edited in the history
+        "boost": "",             # "yes" | "no" | "" (not decided)
+        "when": "",              # boost time, wall clock in JST, "YYYY-MM-DDTHH:MM"
+        "done": False,           # ticked off in the history list
         "messages": [],
         "questions": [],
         "status": "queued",
@@ -94,6 +154,8 @@ def load_jobs():
             job = json.loads(f.read_text(encoding="utf-8"))
         except Exception:
             continue
+        for field, default in (("url", ""), ("boost", ""), ("when", ""), ("done", False)):
+            job.setdefault(field, default)
         if not job.get("title"):
             job["title"] = derive_title(job.get("jd", ""))
         if job.get("status") == "working":
@@ -114,8 +176,301 @@ def add_message(job, role, text):
     return msg
 
 
+def read_env():
+    """Relay credentials from .env. Absent is fine: the queue is then empty."""
+    out = {}
+    f = ROOT / ".env"
+    if not f.is_file():
+        return out
+    for line in f.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            out[k.strip()] = v.strip()
+    return out
+
+
+def relay_call(method, path, body=None, timeout=30):
+    env = read_env()
+    base, token = env.get("RELAY_URL", ""), env.get("RELAY_TOKEN", "")
+    if not base or not token:
+        raise RuntimeError("no RELAY_URL or RELAY_TOKEN in .env")
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(
+        base.rstrip("/") + path, data=data, method=method,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req, timeout=timeout) as res:
+        return json.loads(res.read() or b"null")
+
+
+def telegram_send(text, tag=""):
+    """One message. Returns True if Telegram accepted it, and logs either way,
+    so "did the server send that?" has an answer."""
+    env = read_env()
+    token, chat = env.get("TELEGRAM_BOT_TOKEN", ""), env.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat:
+        return False
+    try:
+        data = json.dumps({"chat_id": chat, "text": text, "parse_mode": "HTML",
+                           "disable_web_page_preview": True}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=data, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as res:
+            ok = bool(json.loads(res.read() or b"null").get("ok"))
+        print(f"  telegram {'sent' if ok else 'refused'} {tag}".rstrip(), flush=True)
+        return ok
+    except Exception as exc:
+        print(f"  telegram send failed {tag}: {exc}", flush=True)
+        return False
+
+
+def telegram_new_job(item):
+    """Two messages per job, in this order and no other:
+
+      1. the job description on its own
+      2. the title, the budget and the link
+
+    The description leads because it is what decides whether the job is worth
+    opening, and it reads and forwards cleanly with nothing wrapped round it.
+    The headline follows, which also leaves the tappable link as the most
+    recent thing in the chat.
+
+    Skipped for an item already claimed for writing: a job being worked on is
+    not news. Never raises, since the job is saved before this runs.
+    """
+    if item.get("used"):
+        print(f"  telegram skipped seq {item.get('seq')}: already claimed", flush=True)
+        return False
+
+    b = item.get("body", {})
+    seq = item.get("seq")
+
+    # 1. the posting itself, nothing around it
+    desc = (b.get("description") or "").strip()
+    if desc:
+        if len(desc) > 3900:            # Telegram caps a message at 4096
+            desc = desc[:3900].rstrip() + "\n\n[...truncated, full text is in the queue]"
+        first = html.escape(desc)
+    else:
+        first = "<i>This post arrived with no description.</i>"
+    ok = telegram_send(first, f"seq {seq} (1/2 description)")
+
+    # 2. title, what it pays, where to open it
+    head = ["<b>" + html.escape(b.get("title") or "Untitled job") + "</b>",
+            "Budget: " + html.escape(str(b.get("budget") or "not specified"))]
+    url = b.get("upworkUrl") or b.get("url")
+    if url:
+        head.append(html.escape(url))
+    ok = telegram_send("\n".join(head), f"seq {seq} (2/2 headline)") and ok
+    return ok
+
+
+def telegram_proposal_done(job):
+    """One short message when a proposal is finished and ready to copy."""
+    lines = ["<b>Proposal done</b>", html.escape(job.get("title") or job["id"])]
+    if job.get("url"):
+        lines.append(html.escape(job["url"]))
+    return telegram_send("\n".join(lines), f"job {job['id']} done")
+
+
+def queue_save(item):
+    QUEUE_DIR.mkdir(exist_ok=True)
+    (QUEUE_DIR / f"{item['seq']:06d}.json").write_text(
+        json.dumps(item, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def relay_pull(wait=0.0):
+    """Take what the relay is holding, keep the jobs, acknowledge the lot.
+
+    With `wait`, the relay holds the request open until something arrives, so
+    a posted job reaches this machine in about as long as the network takes
+    rather than waiting for the next poll.
+
+    Stored locally *before* acking, so a crash in between re-delivers rather
+    than loses. Non-job messages (the Apps Script test pings) are acked and
+    dropped: they would only ever render as an empty row.
+    """
+    payload = relay_call("GET", f"/messages?wait={wait}", timeout=wait + 20)
+    kept = []
+    for msg in payload.get("messages", []):
+        body = msg.get("body") if isinstance(msg.get("body"), dict) else {}
+        if body.get("type") == "job":
+            existing = QUEUE_DIR / f"{msg['seq']:06d}.json"
+            if not existing.is_file():        # never clobber a typed-in client name
+                item = {"seq": msg["seq"], "channel": msg["channel"],
+                        "sender": msg.get("sender", ""), "ts": msg.get("ts", time.time()),
+                        "body": body, "client_name": "", "used": False}
+                queue_save(item)
+                kept.append(item)
+                print(f"  relay job seq {msg['seq']} arrived: "
+                      f"published={body.get('published','?')} "
+                      f"vollna={body.get('receivedAt','?')} "
+                      f"{(body.get('title') or '')[:46]!r}", flush=True)
+        relay_call("POST", "/ack", {"channel": msg["channel"], "seq": msg["seq"]})
+    for item in kept:
+        telegram_new_job(item)
+    return len(kept)
+
+
+def queue_items():
+    """Newest first. Each row is what the UI needs and nothing more."""
+    out = []
+    if not QUEUE_DIR.is_dir():
+        return out
+    for f in sorted(QUEUE_DIR.glob("*.json")):
+        try:
+            item = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        b = item.get("body", {})
+        client = b.get("client") if isinstance(b.get("client"), dict) else {}
+        out.append({
+            "seq": item["seq"],
+            "title": b.get("title") or "Untitled job",
+            "url": b.get("upworkUrl") or b.get("url") or "",
+            "budget": b.get("budget") or "",
+            "published": b.get("published") or "",
+            "location": client.get("location", ""),
+            "verified": client.get("paymentVerified"),
+            "qualification": b.get("aiQualification", ""),
+            "has_jd": bool((b.get("description") or "").strip()),
+            "client_name": item.get("client_name", ""),
+            "used": bool(item.get("used")),
+            "job_id": item.get("job_id", ""),
+            "job_status": (JOBS.get(item.get("job_id", ""), {}) or {}).get("status", ""),
+            "has_proposal": bool((JOBS.get(item.get("job_id", ""), {}) or {}).get("proposal")),
+        })
+    out.sort(key=lambda r: r["seq"])      # newest at the bottom
+    return out
+
+
+def queue_drop_for_job(job_id):
+    """Take a finished job's row out of the queue.
+
+    The row exists to say "this still needs writing". Once a proposal is
+    stored the row has no work left in it, and leaving it there means the
+    list stops being a list of what to do.
+    """
+    if not job_id or not QUEUE_DIR.is_dir():
+        return None
+    for f in sorted(QUEUE_DIR.glob("*.json")):
+        try:
+            item = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if item.get("job_id") == job_id:
+            f.unlink()
+            return item.get("seq")
+    return None
+
+
+def queue_get(seq):
+    f = QUEUE_DIR / f"{int(seq):06d}.json"
+    if not f.is_file():
+        return None
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+def queue_jd(item):
+    """The job description the writer works from, built by the bridge's own
+    formatter so the relay path and the manual path agree."""
+    from proposal_bridge import as_jd
+    return as_jd(item.get("body", {}))
+
+
+def pull_loop():
+    """Hold a request open on the relay, so a new job arrives here at once."""
+    while True:
+        try:
+            relay_pull(wait=25)
+        except Exception as exc:
+            print(f"  relay pull failed: {exc}", flush=True)
+            time.sleep(15)          # only back off when something is wrong
+
+
+def slugify(text, limit=48):
+    out = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return (out[:limit].rstrip("-") or "untitled")
+
+
+def export_proposal(job):
+    """Write the proposal to proposals/ as readable markdown.
+
+    This is the durable local copy. The .jobs record is the queue's working
+    state; this is the thing you would actually open in a month.
+    """
+    if not job.get("proposal"):
+        return
+    PROPOSALS.mkdir(exist_ok=True)
+    when = datetime.datetime.fromtimestamp(job.get("created", time.time()), tz=JST)
+    name = f"{when:%Y-%m-%d}_{slugify(job.get('title') or job['id'])}_{job.get('person','')}" \
+           f"_{job['id']}.md"
+    # A retitled job would otherwise leave its old file behind.
+    for stale in PROPOSALS.glob(f"*_{job['id']}.md"):
+        if stale.name != name:
+            stale.unlink()
+
+    imgs = job.get("images")
+    body = job.get("proposal", "").strip()
+    lines = [
+        f"# {job.get('title') or job['id']}",
+        "",
+        f"- **Person:** {job.get('person','')}",
+        f"- **Guide:** {job.get('guide','')}",
+        f"- **Client:** {job.get('client') or '(not given)'}",
+        f"- **Job URL:** {job.get('url') or '(not saved)'}",
+        f"- **Written:** {when:%Y-%m-%d %H:%M} JST",
+        f"- **Length:** {len(body.replace('**', '')):,} characters",
+        f"- **Images:** {', '.join(imgs) if imgs else 'none'}",
+        f"- **Job id:** {job['id']}",
+        "",
+        "---",
+        "",
+        "## Proposal",
+        "",
+        body,
+        "",
+    ]
+
+    if job.get("screening_answers"):
+        lines += ["---", "", "## Screening answers", ""]
+        for a in job["screening_answers"]:
+            lines += [f"**Q. {a.get('question','').strip()}**", "",
+                      a.get("answer", "").strip(), ""]
+
+    if job.get("questions"):
+        lines += ["---", "", "## Questions raised while writing", ""]
+        for q in job["questions"]:
+            lines.append(f"- **{q.get('text','').strip()}**")
+            if q.get("assumption"):
+                lines.append(f"  - Assumed: {q['assumption'].strip()}")
+            if q.get("answer"):
+                lines.append(f"  - Answered: {q['answer'].strip()}")
+            if q.get("ignored"):
+                lines.append("  - Ignored")
+        lines.append("")
+
+    if job.get("jd"):
+        lines += ["---", "", "## Job description", "", job["jd"].strip(), ""]
+
+    (PROPOSALS / name).write_text("\n".join(lines), encoding="utf-8")
+    job["export"] = name
+    return name
+
+
+def remove_export(job):
+    """Only for an explicit delete. The timed purge deliberately leaves these."""
+    for f in PROPOSALS.glob(f"*_{job['id']}.md"):
+        f.unlink()
+
+
 def save_job(job):
     JOBS_DIR.mkdir(exist_ok=True)
+    try:
+        export_proposal(job)
+    except Exception as exc:                 # never lose the job over the archive
+        print(f"  could not export {job['id']}: {exc}", flush=True)
     (JOBS_DIR / f"{job['id']}.json").write_text(json.dumps(job, indent=2), encoding="utf-8")
 
 
@@ -209,6 +564,14 @@ def call_anthropic(system: str, user: str) -> str:
     return "".join(b.get("text", "") for b in payload.get("content", []))
 
 
+class Server(ThreadingHTTPServer):
+    # Default backlog is 5. Two pollers plus a browser can burst past that and
+    # get connection-refused even while the server is perfectly healthy.
+    request_queue_size = 128
+    daemon_threads = True
+    allow_reuse_address = True
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ProposalUI/1.0"
 
@@ -252,16 +615,22 @@ class Handler(BaseHTTPRequestHandler):
                     "guides": list_guides(),
                     "people": list_people(),
                     "mode": "api" if os.environ.get("ANTHROPIC_API_KEY") else "bridge",
+                    "retention_days": RETENTION_DAYS,
+                    "purge_at_jst": "%02d:%02d" % PURGE_AT_JST,
                     "model": MODEL,
                 },
             )
+        if path == "/api/queue":
+            return self._send(200, {"queue": queue_items()})
+
         if path == "/api/jobs":
             with JOBS_LOCK:
                 rows = sorted(JOBS.values(), key=lambda j: j["created"], reverse=True)
             return self._send(200, {"jobs": [
                 {k: j.get(k) for k in
-                 ("id", "guide", "person", "status", "note", "created", "title", "images")}
-                for j in rows[:20]
+                 ("id", "guide", "person", "status", "note", "created", "title", "images",
+                  "url", "boost", "when", "done")}
+                for j in rows[:200]
             ]})
         if path.startswith("/api/messages/since"):
             try:
@@ -315,6 +684,7 @@ class Handler(BaseHTTPRequestHandler):
 
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/result", path)
         if m:
+            finished = None
             with JOBS_LOCK:
                 job = JOBS.get(m.group(1))
                 if not job:
@@ -325,16 +695,101 @@ class Handler(BaseHTTPRequestHandler):
                     job["status"] = "error"
                     job["note"] = str(data["error"])
                 else:
-                    job["proposal"] = data.get("proposal") or ""
+                    text = (data.get("proposal") or "").strip()
+                    if not text:
+                        # A result with no proposal used to mark the job done and
+                        # empty, which reads as "written" in the UI and hands the
+                        # user nothing. Refuse it and leave the job claimable.
+                        return self._send(400, {
+                            "error": "no proposal in the result: send the text in "
+                                     "'proposal', or POST /note and /questions instead",
+                            "status": job["status"]})
+                    job["proposal"] = text
                     job["status"] = "done"
+                    dropped = queue_drop_for_job(job["id"])
+                    if dropped is not None:
+                        print(f"  queue seq {dropped} written, row removed", flush=True)
+                    finished = job
                     job["note"] = ("final version, no further questions"
                                    if job.get("status_was_revising")
                                    else "written by Claude Code")
-                    if data.get("title"):
+                    # The real Upwork title wins. A writer's own summary of the
+                    # job is not the job's name, and renaming it makes the row
+                    # impossible to match against the post.
+                    if data.get("title") and not job.get("title_from_post"):
                         job["title"] = str(data["title"]).strip()[:60]
                     if "images" in data:
                         imgs = data.get("images")
                         job["images"] = list(imgs) if isinstance(imgs, list) else []
+                save_job(job)
+            # Sent outside the lock: a Telegram round trip must not hold up
+            # every other request, and the job is already stored by now.
+            if finished is not None:
+                telegram_proposal_done(finished)
+            return self._send(200, {"ok": True})
+
+        if path == "/api/queue/refresh":
+            try:
+                added = relay_pull()
+            except Exception as exc:
+                return self._send(502, {"error": str(exc)})
+            return self._send(200, {"ok": True, "added": added, "queue": queue_items()})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/meta", path)
+        if m:
+            item = queue_get(m.group(1))
+            if not item:
+                return self._send(404, {"error": "no such queue item"})
+            if "client_name" in data:
+                item["client_name"] = str(data["client_name"]).strip()[:80]
+            if "used" in data:
+                item["used"] = bool(data["used"])
+            queue_save(item)
+            return self._send(200, {"ok": True})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/delete", path)
+        if m:
+            f = QUEUE_DIR / f"{int(m.group(1)):06d}.json"
+            existed = f.is_file()
+            if existed:
+                f.unlink()
+            return self._send(200, {"ok": True, "deleted": existed})
+
+        if path == "/api/jobs/clear":
+            with JOBS_LOCK:
+                removed = len(JOBS)
+                for job_id, job in list(JOBS.items()):
+                    f = JOBS_DIR / f"{job_id}.json"
+                    if f.is_file():
+                        f.unlink()
+                    remove_export(job)      # an explicit clear takes the archive too
+                JOBS.clear()
+            return self._send(200, {"ok": True, "removed": removed})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/delete", path)
+        if m:
+            job_id = m.group(1)
+            with JOBS_LOCK:
+                gone = JOBS.pop(job_id, None)
+                existed = gone is not None
+                f = JOBS_DIR / f"{job_id}.json"
+                if f.is_file():
+                    f.unlink()
+                if gone:
+                    remove_export(gone)     # an explicit delete takes the archive too
+            return self._send(200, {"ok": True, "deleted": existed})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/meta", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                for field in ("url", "boost", "when"):
+                    if field in data:
+                        job[field] = str(data.get(field) or "").strip()[:400]
+                if "done" in data:
+                    job["done"] = bool(data.get("done"))
                 save_job(job)
             return self._send(200, {"ok": True})
 
@@ -361,6 +816,15 @@ class Handler(BaseHTTPRequestHandler):
                 job = JOBS.get(m.group(1))
                 if not job:
                     return self._send(404, {"error": "no such job"})
+                # This endpoint replaces the whole list. Two writers on one
+                # queue made that a silent clobber: one session's questions
+                # vanished under another's, and the panel then disagreed with
+                # the stored draft. Refuse unless the caller means it.
+                if job.get("questions") and not data.get("replace"):
+                    return self._send(409, {
+                        "error": "this job already has questions; pass replace:true "
+                                 "to overwrite them",
+                        "existing": len(job["questions"])})
                 job["questions"] = [
                     {
                         "id": i,
@@ -434,6 +898,20 @@ class Handler(BaseHTTPRequestHandler):
         person_id = (data.get("person") or "").strip()
         jd = data.get("jd") or ""
 
+        # A job picked off the relay queue carries its own description, link
+        # and client name. The request only has to name the seq.
+        queued = None
+        if data.get("queue_seq") not in (None, ""):
+            queued = queue_get(data["queue_seq"])
+            if not queued:
+                return self._send(404, {"error": f"queue item {data['queue_seq']} is gone"})
+            jd = queue_jd(queued)
+            data = dict(data)
+            data["url"] = (queued.get("body", {}).get("upworkUrl")
+                           or queued.get("body", {}).get("url") or "")
+            data["client"] = queued.get("client_name", "")
+            data["title"] = (queued.get("body", {}).get("title") or "").strip()
+
         if path in ("/api/prompt", "/api/generate"):
             if not jd.strip():
                 return self._send(400, {"error": "paste a job description first"})
@@ -448,7 +926,12 @@ class Handler(BaseHTTPRequestHandler):
 
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 job = new_job(guide_id, person_id, jd, data.get("client") or "",
-                              data.get("screening") or "")
+                              data.get("screening") or "", data.get("url") or "",
+                              data.get("title") or "")
+                if queued:
+                    queued["used"] = True
+                    queued["job_id"] = job["id"]
+                    queue_save(queued)
                 return self._send(200, {"job": job["id"], "mode": "bridge"})
 
             try:
@@ -467,15 +950,20 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     load_jobs()
+    purge_old_jobs()          # catch up if the server was down at the boundary
+    threading.Thread(target=purge_loop, daemon=True).start()
+    threading.Thread(target=pull_loop, daemon=True).start()
     if not (UI / "index.html").is_file():
         sys.exit("ui/index.html is missing")
     mode = "API mode" if os.environ.get("ANTHROPIC_API_KEY") else "bridge mode (jobs go to Claude Code)"
     print(f"Proposal UI on http://localhost:{PORT}  [{mode}]")
-    print(f"  guides: {', '.join(g['id'] for g in list_guides()) or 'none'}")
-    print(f"  people: {', '.join(p['id'] for p in list_people()) or 'none'}")
-    print(f"  jobs restored: {len(JOBS)}")
+    print(f"  guides: {', '.join(g['id'] for g in list_guides()) or 'none'}", flush=True)
+    print(f"  people: {', '.join(p['id'] for p in list_people()) or 'none'}", flush=True)
+    print(f"  jobs restored: {len(JOBS)}", flush=True)
+    nxt = datetime.datetime.fromtimestamp(next_purge_epoch(), tz=JST)
+    print(f"  history kept {RETENTION_DAYS} days, next purge {nxt:%Y-%m-%d %H:%M} JST", flush=True)
     print("  Ctrl+C to stop")
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    Server(("127.0.0.1", PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":

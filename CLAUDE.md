@@ -29,12 +29,20 @@ Files in this folder:
 | `guides/*.md` | The proposal-writing guides. `general.md` is the default |
 | `CLAUDE.md` | This file: what the repo is and where everything lives |
 | `ui/index.html` | Front end: pick a guide, pick a person, paste a JD, get copy-ready output |
+| `proposals/` | Local archive, one readable markdown file per proposal. Gitignored |
 | `server.py` | Local server behind the UI. Start it with `./run-ui.sh` |
 | `milestone-template.html` | Starting point for `milestones.jpg` |
 | `approach-template.html` | Starting point for `my_approach.jpg` |
 | `html-to-jpg.sh` | Renders either template to JPG |
 
-Proposals are never saved to disk. They live in the reply only.
+**Proposals are archived locally.** Every proposal is written to `proposals/` as readable
+markdown the moment it is posted back, named `<date>_<slug>_<person>_<id>.md` and carrying the
+metadata, the screening answers, the questions and the original job description, so the file
+stands alone. The `.jobs/<id>.json` record is the queue's working state; `proposals/` is the
+durable copy. Both are gitignored, since they hold client names and rates and the repo is public.
+
+Deleting a row in the history, or Clear all, removes the archived file too. The timed retention
+purge does not: it trims the working list at 20:30 JST, it does not throw away finished work.
 
 ## How to write a proposal
 
@@ -102,8 +110,17 @@ A job carries a `client` name from the UI when the user supplies one; use it in 
   to lead with, rate and availability, tone and positioning calls. Anything where you had to
   guess about *your own side* rather than about the client's.
 
-**Never block on either.** Write the best proposal you can from the JD alone, decide every open
-point yourself, and post the result. Then post the user-facing ones as a question list:
+**Questions come first, before the proposal is written.** Read the job description, do the
+analysis the selected guide asks for, and post the question list straight away. Then write. Do not
+append questions to a finished proposal: that hands the user a draft they cannot judge yet and
+turns every job into two rounds.
+
+**Still never block.** Posting the questions does not mean waiting for them. Write the proposal
+while they sit in the panel, decide every open point yourself, and ship. If answers arrive before
+the draft is posted, fold them in and the first version is already final. If they don't, the
+shipped assumptions stand and the answers only ever improve it.
+
+Post the list like this:
 
 ```
 curl -s -X POST localhost:8765/api/job/<id>/questions -d '{"questions":[
@@ -155,7 +172,8 @@ leaves a complete proposal.
 
 **After the answers come back, rewrite and post the final version with no new questions.** If
 something surfaces during the rewrite, decide it yourself and say so in the note rather than
-opening a second round. A question that would be better asked of the client belongs in the
+opening a second round. Questions raised after a proposal has been posted are a failure of the
+analysis step, not a second chance at it. A question that would be better asked of the client belongs in the
 proposal, not the panel.
 
 Post the proposal back as **markdown**; the page converts it to Unicode bold itself. Jobs are

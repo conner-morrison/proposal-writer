@@ -69,6 +69,19 @@ client.
 - NLP
 - Image Processing
 
+**Healthcare data interchange** (confirmed by the user 2026-09-11, not in the resume PDF)
+- HL7 message parsing and mapping into relational tables
+- FHIR resources and bundles, flattened without losing references
+- Clinical vocabulary mapping: LOINC, SNOMED, ICD-10
+
+## Provenance note
+
+Everything in this file comes from `Wing_MS_Resume_2026_V2.pdf` except the **Healthcare data
+interchange** block, which the user confirmed directly on 2026-09-11 when a job asked whether
+Zachary had personally parsed HL7 or FHIR in production. The employer and dates for that work
+are not recorded here yet, so describe the capability and the technique rather than pinning it
+to a named project.
+
 ## Experience
 
 ### International Aircraft Associates, Miramar FL, USA
@@ -167,6 +180,13 @@ Quantitative Developer.** 08/2019 - Current
 - University of Illinois - Applying Data Analytics in Accounting
 - University of Michigan - Introduction to Data Science in Python
 - University of London (UK) - Foundations of Data Science: K-Means Clustering in Python
+- Microsoft - Introduction to the Azure SQL family of products
+- Microsoft - Deploy and configure servers, instances, and databases for Azure SQL
+
+Note on the last two: these are **Microsoft Learn** training modules from the Azure SQL path, not
+proctored exam certifications. They are real Microsoft-issued achievements and worth naming on
+Azure or SQL Server work. They are **not** PL-300 and do not answer a request for a Power BI
+certification.
 
 ## Industry experience
 

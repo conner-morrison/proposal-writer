@@ -95,6 +95,13 @@ section leaves dead space at the bottom of the frame.
   not `.txt`. Do the 2000-character check on the markdown draft, since Unicode bold inflates the
   count in editors that measure UTF-16 code units.
 - **Tone:** professional, confident, friendly. Impressive without bragging. Warm without filler.
+  **It has to sound like a person typed it.** The client is reading forty of these and the
+  polished ones all sound machine-written. Specifically: cap "not X, but Y" / "rather than" /
+  "instead of" constructions at one per proposal, never end a paragraph on a neat aphorism, break
+  up rule-of-three lists, and let at least one sentence be short and plain. React to something
+  specific in their post in your own words, use "I" freely, and allow one honest reservation
+  ("that timeline is tight but doable"). A proposal with zero uncertainty in it reads as
+  generated. Full detail in `guides/brainstormed.md` under "Sound like a person".
 - **Use contractions.** Write "I've", "I'm", "it's", "don't", "you'll", never "I have built",
   "I am", "it is", "do not", "you will". The long form reads stiff and formal. This applies to the proposal, the images, and any follow-up answer. The stack
   headline, when the stack line is used at all, is therefore **I'm fully comfortable with**, not

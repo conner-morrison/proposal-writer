@@ -7,11 +7,19 @@ approach-job.html
 # Job queue records: contain pasted job descriptions and drafted proposals
 .jobs/
 
+# The local proposal archive. Kept out of the public repo because these carry
+# client names, job descriptions and rates. Delete this line to version them.
+proposals/
+
 # Source documents that belong to other people
 Marketing_Dashboard_Scoping_Document.docx
 
 # Personal source documents
 *.pdf
+
+# Relay worker credentials. This repo is public: the token must never be in it.
+.env
+proposal-bridge.json
 
 # Editor and OS noise
 .DS_Store

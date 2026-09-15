@@ -107,33 +107,25 @@ Each numbered item is one paragraph, separated by a blank line.
 
 **2. The key point of their project. Bold the quoted phrase from the job description.**
 
-**This paragraph is where the Phase 1 point 3 read gets used.** Confident, interested in, proud of,
-suffering from, willing to do next. Each of those calls for a different move, and every move has to
-carry a phrase pointing at work already done. An observation about the client with no experience
-behind it is flattery, and it reads like it.
-
-| What you found in Phase 1 | What this paragraph does with it |
-| --- | --- |
-| **Proud of** or **confident at** something | Acknowledge it, specifically and in one clause. If they offered that thing to you, say plainly that it will help. |
-| **Interested in** something | Meet the interest with substance from our own former work, not with agreement. |
-| **Suffering from** something, and it is the key point | Propose the solution, grounded in what has been built before. |
-| **Willing** to go further, more tasks, ongoing work | Agree with it, where doing so doesn't cut against the main idea. |
-
-**Their materials are an announcement, not a request.** When they have offered research, findings,
-samples or access, say what it will do for the work: "the findings and sample photos you mentioned
-will shorten the first week." Never "send them over" here. Asking belongs in the close, and only if
-the close is an ask, so putting a request here spends one of your asks in the wrong paragraph.
-
-Rules for the paragraph itself:
+Two or three sentences. No more.
 
 - **Quote only the key part, not the whole sentence.** Find the few words that carry the point and
   bold those. A long quotation buries the thing you were pointing at.
 - **Placement is optional.** It can open the paragraph, but it doesn't have to. Dropping it into
   the middle of your own sentence usually reads more naturally than leading with a quotation.
-- Short and sharp. Every sentence here does one of the four jobs in the table. **If a sentence does
-  none of them, cut it.** This is the paragraph that fills up with pleasant, useless writing.
-- The whole thing explains why their post was genuinely interesting, and earns that with evidence
-  rather than compliments.
+- **Show why that key point matters**, proved by something already built, not asserted. Brief
+  approval is fine when the key point is genuinely a smart decision on their part, but skip the
+  flattery and let the evidence carry it.
+- **This is where Phase 1 point 3 gets used**: what they are proud of, suffering from, or willing
+  to continue. One clause, not a sentence of its own.
+  - **Write it as an announcement, never a request.** "Your findings and sample photos will
+    shorten the first week" acknowledges what he's proud of and tells him it has value. "Send me
+    your findings and sample photos" turns his contribution into a chore and spends the close on
+    an ask that should have been the close's own.
+  - The request, if one is needed at all, belongs in paragraph 8. Never in both.
+- Cut anything that isn't the quote, the reason it matters, or the acknowledgement. Restating
+  their brief back to them, explaining what you're about to explain, and telling them why you
+  found the post interesting all belong on the floor.
 
 **3. The solution, as our approach. A numbered list, never a block of prose. No bold anywhere in
 this paragraph, including the word Approach.**
@@ -315,10 +307,76 @@ known yet, because a confident milestone chart contradicts asking for discovery.
 
 # Basic rules
 
-**1. Tone: persuasive, professional, confident, and human.**
+**1. Tone: sound like a person. Write like someone typing a message, not a consultancy
+producing a document.**
 No em dashes. Contractions throughout. Match the register to the client you found in Phase 1: a
 direct client gets directness back, a careful one gets reassurance, a collaborative one gets
 "we" rather than "I" where it fits.
+
+The structure below is fixed. The **voice inside it is not**, and getting the voice wrong is the
+single most common way these proposals fail. A client reads forty of these. The polished,
+perfectly balanced ones all sound like the same machine wrote them, because increasingly one did.
+Sounding like a real person who read the post is now the differentiator.
+
+### The tells that give it away
+
+These are taken from our own shipped proposals. Each is a habit to break, not a style to admire.
+
+**a. The X-not-Y antithesis.** The worst offender by far. "A draft with an opinion, not a
+decision." "Refined against replies instead of revenue." "Maintained daily rather than rebuilt
+weekly." "Structured data, not a digest." One shipped letter carried nine of these. It is the
+most recognisable AI sentence shape in existence. **Cap: one per proposal, and only if it is
+genuinely the clearest way to say the thing.** Usually the fix is to delete the "not Y" half,
+because the "X" half already said it.
+
+**b. The closing epigram.** Ending a paragraph on a neat aphorism: "Steering meetings that end in
+decisions." "That's the difference between weekly refinement and weekly opinion." "A bot learns
+to be agreeable rather than effective." Nobody talks like this. It reads as performance. End
+paragraphs on the plain point instead, even when the clever line is available, **especially**
+when the clever line is available.
+
+**c. Rule of three.** "Activity, stage conversion and agent version." "Their timeline, their
+budget, their risk." Real people list two things, or four, or one. Three balanced items is a
+rhythm you fall into when you are generating rather than remembering. Vary it.
+
+**d. Every sentence load-bearing.** Both shipped letters are 100% signal, every clause doing
+work. Humans don't write like that. A real message has a throwaway line, an aside, a short
+reaction. That texture is what makes the dense parts land.
+
+**e. Abstract nouns doing the verb's job.** "An archaeology exercise." "The measurement layer."
+"Commercial calls with the record attached." Say who does what to what.
+
+**f. No visible reaction.** Nothing in either letter shows a human had a thought while reading
+the post. No "honestly", no "this is the part I'd worry about", no sign of interest or
+scepticism. It reads as output, because it is.
+
+### What to do instead
+
+- **React to something specific in their post, in your own words.** One line, early. "The bit
+  about the pre-build pool ageing quietly is the part I'd worry about first." It costs eight
+  words and it proves a person read it.
+- **Use "I" and mean it.** "I've done this", "I'd start by", "I think", "in my experience", "I
+  ran into this exact thing at MOOG". Confidence does not require impersonality.
+- **Let one sentence be short and flat.** "That part is straightforward." "Standard stuff." "I've
+  seen this go wrong twice."
+- **Say the mildly awkward true thing** where it helps: "That timeline is tight but doable."
+  "Worth saying I'd push back on doing the scraper first." Nothing signals a human like a small
+  honest reservation, and it makes the confident claims believable.
+- **Allow a hedge.** "I'd guess", "probably", "depends what's in there". A proposal with zero
+  uncertainty in it reads as generated, because a person who actually knows the work knows what
+  they cannot know yet from a job post.
+- **Vary sentence length hard.** Long, long, short. The rhythm is most of the effect.
+
+### The check before you post
+
+Read the draft back and ask: **would a smart freelancer type this, or would they say it out
+loud?** If a line is one you would never say to the client on a call, rewrite it as the thing you
+would say. Then count the "rather than" / "instead of" / "not X, but Y" constructions. More than
+one, cut the rest.
+
+None of this means casual to the point of sloppy. It stays professional, specific and confident.
+It just has to sound like it came from a person, because the client's alternative is forty
+letters that don't.
 
 **2. Short by default, longer only when earned.**
 Do not explain at length where a sharp line does the job. Expand when the client is careful, asks
@@ -351,8 +409,15 @@ should exist to answer something they said.
 
 # Working with the UI
 
-**Never block.** Write the best proposal the job description supports, decide every open point
-yourself, and post it. Then surface what you had to guess.
+**Questions first, then the proposal.** Finish Phase 1, post the question list, and only then
+start writing. The questions belong to the analysis, not to the draft, so they reach the user
+while the proposal is still being written rather than arriving attached to something that already
+looks finished.
+
+**Never block on them.** Write while they sit in the panel. Decide every open point yourself and
+ship. Answers that arrive in time get folded into version 1, which then needs no rewrite at all;
+answers that don't arrive change nothing, because every question shipped with the assumption
+already in the draft.
 
 - **Their screening questions** arrive in their own field. Answer each one separately and post
   them back to `/api/job/<id>/screening_answers` so each gets its own copy button. These are read

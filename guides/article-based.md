@@ -150,6 +150,14 @@ Upwork's version of the same idea, as a contrast pair:
 
 Personality is not padding. It's the thing that makes one of forty proposals memorable.
 
+**The modern version of this problem is sounding AI-written.** The specific tells: "not X, but Y"
+and "rather than" constructions stacked up, paragraphs ending on neat aphorisms, everything in
+threes, and every single sentence doing work with no aside or reaction anywhere. Cap the
+antithesis constructions at one, end on the plain point rather than the clever one, and put one
+genuine reaction to their post in your own words. Let a sentence be short and flat. Allow one
+honest reservation. The full list is in `guides/brainstormed.md` under "Sound like a person" and
+applies here unchanged.
+
 ## Kill the buzzwords
 
 "Motivated," "team player," "detail-oriented," "results-driven," "passionate." They cost words and

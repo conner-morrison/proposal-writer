@@ -228,13 +228,12 @@ def telegram_send(text, tag=""):
 def telegram_new_job(item):
     """Two messages per job, in this order and no other:
 
-      1. the job description on its own
-      2. the title, the budget and the link
+      1. the title, the budget and the link
+      2. the job description on its own
 
-    The description leads because it is what decides whether the job is worth
-    opening, and it reads and forwards cleanly with nothing wrapped round it.
-    The headline follows, which also leaves the tappable link as the most
-    recent thing in the chat.
+    The headline leads so the notification preview names the job. The
+    description follows as its own message, which reads and forwards cleanly
+    with nothing wrapped round it.
 
     Skipped for an item already claimed for writing: a job being worked on is
     not news. Never raises, since the job is saved before this runs.
@@ -246,24 +245,81 @@ def telegram_new_job(item):
     b = item.get("body", {})
     seq = item.get("seq")
 
-    # 1. the posting itself, nothing around it
-    desc = (b.get("description") or "").strip()
-    if desc:
-        if len(desc) > 3900:            # Telegram caps a message at 4096
-            desc = desc[:3900].rstrip() + "\n\n[...truncated, full text is in the queue]"
-        first = html.escape(desc)
-    else:
-        first = "<i>This post arrived with no description.</i>"
-    ok = telegram_send(first, f"seq {seq} (1/2 description)")
-
-    # 2. title, what it pays, where to open it
+    # 1. title, what it pays, where to open it
     head = ["<b>" + html.escape(b.get("title") or "Untitled job") + "</b>",
             "Budget: " + html.escape(str(b.get("budget") or "not specified"))]
     url = b.get("upworkUrl") or b.get("url")
     if url:
         head.append(html.escape(url))
-    ok = telegram_send("\n".join(head), f"seq {seq} (2/2 headline)") and ok
+    ok = telegram_send("\n".join(head), f"seq {seq} (1/2 headline)")
+
+    # 2. the posting itself, nothing around it
+    desc = (b.get("description") or "").strip()
+    if desc:
+        if len(desc) > 3900:            # Telegram caps a message at 4096
+            desc = desc[:3900].rstrip() + "\n\n[...truncated, full text is in the queue]"
+        second = html.escape(desc)
+    else:
+        second = "<i>This post arrived with no description.</i>"
+    ok = telegram_send(second, f"seq {seq} (2/2 description)") and ok
     return ok
+
+
+def _jst_wall_to_epoch(wall):
+    """Wall clock "YYYY-MM-DDTHH:MM" in JST -> Unix epoch seconds. None on bad input."""
+    if not wall:
+        return None
+    try:
+        parts = wall.replace("T", "-").replace(":", "-").split("-")
+        y, mo, d, h, mi = (int(x) for x in parts[:5])
+    except (ValueError, IndexError):
+        return None
+    import calendar
+    return calendar.timegm((y, mo, d, h, mi, 0, 0, 0, 0)) - 9 * 3600
+
+
+def telegram_boost_due(job):
+    """Alarm when a boosted job's scheduled time arrives."""
+    lines = ["<b>Boost now</b>",
+             html.escape(job.get("title") or job["id"])]
+    if job.get("when"):
+        lines.append("Scheduled for " + html.escape(job["when"]) + " JST")
+    if job.get("url"):
+        lines.append(html.escape(job["url"]))
+    return telegram_send("\n".join(lines), f"job {job['id']} boost due")
+
+
+def boost_check_loop():
+    """Every 30 seconds, look for a boosted job whose deadline has arrived and
+    is not yet done. Fire the Telegram once per job by flagging boost_notified."""
+    while True:
+        try:
+            _boost_check_once()
+        except Exception as exc:
+            print(f"  boost check failed: {exc}", flush=True)
+        time.sleep(30)
+
+
+def _boost_check_once():
+    now = time.time()
+    with JOBS_LOCK:
+        due = []
+        for job in JOBS.values():
+            if (job.get("boost") == "yes"
+                    and not job.get("done")
+                    and not job.get("boost_notified")
+                    and job.get("when")):
+                when_epoch = _jst_wall_to_epoch(job["when"])
+                if when_epoch is not None and when_epoch <= now:
+                    due.append(job)
+    for job in due:
+        # Set the flag before sending so a slow Telegram doesn't cause a
+        # double-fire if the loop tick overlaps.
+        with JOBS_LOCK:
+            job["boost_notified"] = True
+            save_job(job)
+        telegram_boost_due(job)
+        print(f"  boost telegram sent for job {job['id']}", flush=True)
 
 
 def telegram_proposal_done(job):
@@ -280,22 +336,43 @@ def queue_save(item):
         json.dumps(item, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+# Upstream posts to the `jobs` channel come from three producers: Vollna's
+# email scraper (type "job"), Upwork's own new-job notification worker, and
+# Upwork's invitations worker. Earlier the filter accepted only type "job",
+# which meant the other two were acked and silently dropped for weeks. It now
+# keeps anything with a URL or a title. Explicit noise-shapes (the Apps Script
+# test pings) are still dropped, but named in the log.
+NOISE_TYPES = {"test", "ping", "heartbeat"}
+
+
+def _looks_like_a_job(body):
+    if not isinstance(body, dict):
+        return False
+    if str(body.get("type", "")).lower() in NOISE_TYPES:
+        return False
+    return bool(
+        body.get("title") or body.get("url") or body.get("upworkUrl")
+        or body.get("description") or body.get("jobDescription")
+    )
+
+
 def relay_pull(wait=0.0):
-    """Take what the relay is holding, keep the jobs, acknowledge the lot.
+    """Take what the relay is holding, keep everything that looks like a job,
+    acknowledge the lot.
 
     With `wait`, the relay holds the request open until something arrives, so
-    a posted job reaches this machine in about as long as the network takes
-    rather than waiting for the next poll.
+    a posted job reaches this machine in about as long as the network takes.
 
     Stored locally *before* acking, so a crash in between re-delivers rather
-    than loses. Non-job messages (the Apps Script test pings) are acked and
-    dropped: they would only ever render as an empty row.
+    than loses. Every dropped message is logged with its type and sender, so
+    a new upstream producer sending an unfamiliar shape shows up loudly next
+    time instead of vanishing.
     """
     payload = relay_call("GET", f"/messages?wait={wait}", timeout=wait + 20)
     kept = []
     for msg in payload.get("messages", []):
         body = msg.get("body") if isinstance(msg.get("body"), dict) else {}
-        if body.get("type") == "job":
+        if _looks_like_a_job(body):
             existing = QUEUE_DIR / f"{msg['seq']:06d}.json"
             if not existing.is_file():        # never clobber a typed-in client name
                 item = {"seq": msg["seq"], "channel": msg["channel"],
@@ -303,10 +380,12 @@ def relay_pull(wait=0.0):
                         "body": body, "client_name": "", "used": False}
                 queue_save(item)
                 kept.append(item)
-                print(f"  relay job seq {msg['seq']} arrived: "
-                      f"published={body.get('published','?')} "
-                      f"vollna={body.get('receivedAt','?')} "
-                      f"{(body.get('title') or '')[:46]!r}", flush=True)
+                title = body.get("title") or body.get("jobTitle") or ""
+                print(f"  relay job seq {msg['seq']} arrived from {msg.get('sender','?')}: "
+                      f"type={body.get('type','?')} title={title[:46]!r}", flush=True)
+        else:
+            print(f"  relay skipped seq {msg['seq']} from {msg.get('sender','?')}: "
+                  f"type={body.get('type','?')} keys={list(body)[:6]}", flush=True)
         relay_call("POST", "/ack", {"channel": msg["channel"], "seq": msg["seq"]})
     for item in kept:
         telegram_new_job(item)
@@ -709,7 +788,13 @@ class Handler(BaseHTTPRequestHandler):
                     dropped = queue_drop_for_job(job["id"])
                     if dropped is not None:
                         print(f"  queue seq {dropped} written, row removed", flush=True)
-                    finished = job
+                    # One Telegram alarm per job, no matter how many /result calls
+                    # arrive (from a peer session, from a rewrite after answers).
+                    if not job.get("notified_done"):
+                        job["notified_done"] = True
+                        finished = job
+                    else:
+                        print(f"  telegram skipped: job {job['id']} already notified", flush=True)
                     job["note"] = ("final version, no further questions"
                                    if job.get("status_was_revising")
                                    else "written by Claude Code")
@@ -785,6 +870,11 @@ class Handler(BaseHTTPRequestHandler):
                 job = JOBS.get(m.group(1))
                 if not job:
                     return self._send(404, {"error": "no such job"})
+                # If either boost or the deadline shifts, the alarm should be
+                # able to fire again for the new schedule.
+                if ("boost" in data and data.get("boost") != job.get("boost")) or (
+                        "when" in data and data.get("when") != job.get("when")):
+                    job["boost_notified"] = False
                 for field in ("url", "boost", "when"):
                     if field in data:
                         job[field] = str(data.get(field) or "").strip()[:400]
@@ -953,6 +1043,7 @@ def main():
     purge_old_jobs()          # catch up if the server was down at the boundary
     threading.Thread(target=purge_loop, daemon=True).start()
     threading.Thread(target=pull_loop, daemon=True).start()
+    threading.Thread(target=boost_check_loop, daemon=True).start()
     if not (UI / "index.html").is_file():
         sys.exit("ui/index.html is missing")
     mode = "API mode" if os.environ.get("ANTHROPIC_API_KEY") else "bridge mode (jobs go to Claude Code)"

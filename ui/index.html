@@ -138,6 +138,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .job.due{border-color:var(--bad);box-shadow:inset 3px 0 0 var(--bad);
   background:color-mix(in srgb,var(--bad) 10%,transparent);animation:due 1.1s infinite}
 @keyframes due{50%{background:color-mix(in srgb,var(--bad) 20%,transparent)}}
+#ghWrap{margin-bottom:11px}
+.ghref{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;margin-bottom:5px;
+  border:1.5px solid var(--line);border-radius:9px;background:var(--bg);font-size:12.5px}
+.ghref input[type=checkbox]{flex:none;margin-top:2px;width:15px;height:15px;
+  pointer-events:none}
+.ghref.acked{border-color:var(--ok)}
+.ghbody{flex:1;min-width:0}
+.ghbody a{color:var(--accent);text-decoration:none;font-weight:700;word-break:break-all}
+.ghbody a:hover{text-decoration:underline}
+.ghwhy{color:var(--muted);margin-top:3px;line-height:1.4}
 .wday{width:44px;flex:none;text-align:center;padding-left:4px;padding-right:2px}
 .jrow1{display:flex;align-items:flex-start;gap:9px}
 .jtitle{font-weight:700;line-height:1.3;cursor:pointer;flex:1;min-width:0;
@@ -263,6 +273,11 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
       <button class="ghost" id="stop" disabled>Stop</button>
       <button class="ghost" id="copyPrompt">Copy prompt</button>
       <button class="ghost" id="clear">Clear</button>
+    </div>
+
+    <div id="ghWrap" style="display:none">
+      <div class="legend2">GitHub references sent <span id="ghState" class="count"></span></div>
+      <div id="ghRefs"></div>
     </div>
 
     <div class="status" id="status"><span class="dot"></span><span id="statusMsg">Starting up…</span><span id="imgState"></span></div>
@@ -503,6 +518,7 @@ $("go").addEventListener("click", async () => {
     qJob = data.job; qCount = 0;
     $("questions").innerHTML = ""; $("qWrap").style.display = "none";
     $("sanswers").innerHTML = ""; $("saWrap").style.display = "none";
+    $("ghRefs").innerHTML = ""; $("ghWrap").style.display = "none";
     loadRecent(false); return waitForJob(data.job);
   }
   finish(data.proposal);
@@ -524,14 +540,14 @@ function finish(markdown, job){
 
 /* Bridge mode: the job sits in the queue until the Claude Code session writes it. */
 async function waitForJob(id){
-  run.jobId = id; run.paused = false; run.stopped = false;
+  run.jobId = id; run.paused = false; run.stopped = false; run.githubHeld = false;
   setRunButtons(true);
   setStatus("Sent to Claude Code as job <b>" + id + "</b>, waiting…", "busy");
   const started = Date.now();
   while (true){
     await new Promise(r => setTimeout(r, 1500));
     if (run.stopped) return;
-    if (run.paused){
+    if (run.paused && !run.githubHeld){
       setStatus("Job <b>" + id + "</b> paused. It keeps running, press Resume to watch again.",
                 "warn");
       continue;
@@ -539,6 +555,27 @@ async function waitForJob(id){
     let job;
     try { job = await (await fetch("/api/job/" + id)).json(); }
     catch { continue; }
+
+    renderGithubRefs(job);
+
+    // The writer pauses here while it waits for the github channel to answer
+    // its repository search. Nothing is stuck: the gate clears on its own when
+    // a reply lands, and Resume releases it by hand.
+    if (job.awaiting_github){
+      if (!run.githubHeld){
+        run.githubHeld = true; run.paused = true;
+        $("pause").textContent = "Resume";
+      }
+      setStatus("Waiting for a reply on the <b>github</b> channel before writing. "
+                + "Press <b>Resume</b> to write without it.", "warn");
+      continue;
+    }
+    if (run.githubHeld){
+      run.githubHeld = false; run.paused = false;
+      $("pause").textContent = "Pause";
+      setStatus("github replied, writing job <b>" + id + "</b>\u2026", "busy");
+    }
+
     if ((job.questions || []).length !== qCount || job.id !== qJob) renderQuestions(job);
     if (job.status === "done"){
       loadRecent(false); renderQuestions(job); renderScreening(job);
@@ -565,8 +602,17 @@ async function waitForJob(id){
   }
 }
 
-$("pause").addEventListener("click", () => {
+$("pause").addEventListener("click", async () => {
   if (!run.jobId) return;
+  // Resuming out of a github hold tells the server to stop waiting, otherwise
+  // the next poll would simply put the hold back.
+  if (run.githubHeld && run.paused){
+    await post("/api/job/" + run.jobId + "/resume_github", {});
+    run.githubHeld = false; run.paused = false;
+    $("pause").textContent = "Pause";
+    setStatus("Writing without the github reply\u2026", "busy");
+    return;
+  }
   run.paused = !run.paused;
   $("pause").textContent = run.paused ? "Resume" : "Pause";
   if (!run.paused) setStatus("Watching job <b>" + run.jobId + "</b> again…", "busy");
@@ -674,10 +720,13 @@ async function loadRecent(autoload){
     const url = document.createElement("input");
     url.type = "text"; url.placeholder = "Upwork job URL"; url.value = j.url || "";
     const boost = document.createElement("select");
-    [["", "boost"], ["yes", "yes"], ["no", "no"]].forEach(function(pair){
+    // Yes or no only. The old blank "boost" option meant a row could carry a
+    // deadline while the decision was still undecided, which read as broken.
+    // Anything not explicitly "no" is a yes, so an untouched row defaults to yes.
+    [["yes", "yes"], ["no", "no"]].forEach(function(pair){
       const o = document.createElement("option");
       o.value = pair[0]; o.textContent = pair[1];
-      if ((j.boost || "") === pair[0]) o.selected = true;
+      if ((j.boost || "yes") === pair[0]) o.selected = true;
       boost.append(o);
     });
     // Day + time. Year and month are auto-filled to the next occurrence in
@@ -742,7 +791,13 @@ async function loadRecent(autoload){
     url.addEventListener("change", () => save({url: url.value}));
     const commitWhen = () => {
       const resolved = resolveNextJST(when.value, whenDay.value);
-      save({when: resolved}); j.when = resolved;
+      const patch = {when: resolved};
+      // A row that has never been touched reads as yes, so persist that the
+      // moment a deadline is set and the record agrees with the dropdown.
+      if (resolved && !j.boost){
+        patch.boost = "yes"; boost.value = "yes"; j.boost = "yes";
+      }
+      save(patch); j.when = resolved;
       when.title = resolved ? ("Scheduled for " + resolved + " JST") : "";
       whenDay.title = when.title;
       delete fired[j.id]; row.classList.remove("due"); scheduleAlarms();
@@ -785,48 +840,46 @@ let histJobs = [];
 const fired = {};
 
 function resolveNextJST(hhmm, dayStr){
-  const tm = /^(\d{2}):(\d{2})$/.exec(hhmm || "");
+  // Year and month are never typed. They are resolved to the soonest moment
+  // that matches the day and time given and is still in the future (JST).
+  //
+  // The month walk is deliberate. Building Date.UTC(y, m, 31) for a 30-day
+  // month silently overflows into the next one, and reading the month back off
+  // that overflowed date then skips a month on each pass — which is how "31st"
+  // set on 31 January used to resolve to 31 August.
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(hhmm || "");
   if (!tm) return "";
-  const [, hh, mm] = tm;
-  const jstNow = new Date(Date.now() + JST_OFFSET_MS);
-  let y = jstNow.getUTCFullYear();
-  let mo = jstNow.getUTCMonth() + 1;
-  let d = jstNow.getUTCDate();
+  const H = +tm[1], M = +tm[2];
+  if (H > 23 || M > 59) return "";
+  const hh = String(H).padStart(2, "0"), mm = String(M).padStart(2, "0");
   const pad = n => String(n).padStart(2, "0");
 
-  const targetDay = parseInt(dayStr, 10);
-  if (targetDay >= 1 && targetDay <= 31){
-    // Named day: this month if the (day, time) is still ahead; otherwise next.
-    let attempt = new Date(Date.UTC(y, mo - 1, targetDay,
-                                    parseInt(hh, 10), parseInt(mm, 10)));
-    const nowMs = jstNow.getTime();  // in JST wall-clock ms
-    // attempt.getTime() reads UTC parts of a Date built from UTC — same wall clock.
-    if (attempt.getUTCMonth() !== mo - 1 || attempt.getTime() <= nowMs){
-      // Either the day doesn't exist this month, or the moment is past.
-      attempt = new Date(Date.UTC(y, mo, targetDay,
-                                  parseInt(hh, 10), parseInt(mm, 10)));
-      // Roll forward extra months until the day actually lands (e.g. 31 -> next month with 31 days).
-      let guard = 0;
-      while (attempt.getUTCDate() !== targetDay && guard++ < 12){
-        attempt = new Date(Date.UTC(attempt.getUTCFullYear(),
-                                    attempt.getUTCMonth() + 1,
-                                    targetDay, parseInt(hh, 10), parseInt(mm, 10)));
-      }
+  // "now" as a JST wall clock, read through the UTC getters.
+  const jstNow = new Date(Date.now() + JST_OFFSET_MS);
+  const nowMs = jstNow.getTime();
+  const y0 = jstNow.getUTCFullYear(), m0 = jstNow.getUTCMonth();  // month 0-based
+
+  const day = parseInt(dayStr, 10);
+  if (day >= 1 && day <= 31){
+    for (let k = 0; k < 14; k++){
+      const yy = y0 + Math.floor((m0 + k) / 12);
+      const mIdx = (m0 + k) % 12;
+      // Day 0 of the following month is the last day of this one.
+      const daysInMonth = new Date(Date.UTC(yy, mIdx + 1, 0)).getUTCDate();
+      if (day > daysInMonth) continue;          // no 31st in a 30-day month
+      const t = Date.UTC(yy, mIdx, day, H, M);
+      if (t > nowMs)
+        return yy + "-" + pad(mIdx + 1) + "-" + pad(day) + "T" + hh + ":" + mm;
     }
-    return attempt.getUTCFullYear() + "-" + pad(attempt.getUTCMonth() + 1)
-         + "-" + pad(attempt.getUTCDate()) + "T" + hh + ":" + mm;
+    return "";
   }
 
-  // No day given: today if the time is still ahead, else tomorrow.
-  const nowHM = jstNow.getUTCHours() * 60 + jstNow.getUTCMinutes();
-  const pickHM = (+hh) * 60 + (+mm);
-  if (pickHM <= nowHM){
-    const tomorrow = new Date(Date.UTC(y, mo - 1, d + 1));
-    y = tomorrow.getUTCFullYear();
-    mo = tomorrow.getUTCMonth() + 1;
-    d = tomorrow.getUTCDate();
-  }
-  return y + "-" + pad(mo) + "-" + pad(d) + "T" + hh + ":" + mm;
+  // No day given: today if the time is still ahead, otherwise tomorrow.
+  let t = Date.UTC(y0, m0, jstNow.getUTCDate(), H, M);
+  if (t <= nowMs) t = Date.UTC(y0, m0, jstNow.getUTCDate() + 1, H, M);
+  const d = new Date(t);
+  return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1)
+       + "-" + pad(d.getUTCDate()) + "T" + hh + ":" + mm;
 }
 
 function jstToEpoch(value){
@@ -863,7 +916,8 @@ function raiseAlarm(job){
 function scheduleAlarms(){
   const now = Date.now();
   histJobs.forEach(j => {
-    if (j.done || j.boost !== "yes" || !j.when) return;
+    // Same rule as the server: a deadline boosts unless boost is explicitly "no".
+    if (j.done || String(j.boost || "").toLowerCase() === "no" || !j.when) return;
     const t = jstToEpoch(j.when);
     if (t !== null && t <= now && !fired[j.id]) raiseAlarm(j);
   });
@@ -900,6 +954,38 @@ async function refreshExtras(id){
   const shown = document.querySelectorAll("#sanswers .sa").length;
   if ((job.screening_answers || []).length !== shown) renderScreening(job);
   if ((job.questions || []).length !== qCount) renderQuestions(job);
+}
+
+/* The repository links sent to the github channel, shown above the status bar.
+   The checkbox is a state light, not a control: unticked while the channel has
+   not answered, ticked the moment the ping lands. */
+function renderGithubRefs(job){
+  const wrap = $("ghWrap"), host = $("ghRefs");
+  const refs = job.github_refs || [];
+  if (!refs.length){ wrap.style.display = "none"; return; }
+  const acked = !!job.github_replied;
+  wrap.style.display = "block";
+  $("ghState").textContent = acked ? "replied" : "waiting for reply";
+  host.innerHTML = "";
+  refs.forEach(r => {
+    const box = document.createElement("div");
+    box.className = "ghref" + (acked ? " acked" : "");
+    const tick = document.createElement("input");
+    tick.type = "checkbox"; tick.checked = acked; tick.tabIndex = -1;
+    tick.title = acked ? "github replied" : "waiting for a reply from the github channel";
+    const body = document.createElement("div");
+    body.className = "ghbody";
+    const a = document.createElement("a");
+    a.href = r.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = r.url;
+    body.append(a);
+    if (r.why){
+      const why = document.createElement("div");
+      why.className = "ghwhy"; why.textContent = r.why;
+      body.append(why);
+    }
+    box.append(tick, body);
+    host.append(box);
+  });
 }
 
 function renderScreening(job){
@@ -982,10 +1068,19 @@ async function submitAnswers(){
     ignored: box.querySelector("input[type=checkbox]").checked,
     answer: box.querySelector("input[type=text]").value
   }));
-  const {ok, data} = await post("/api/job/" + qJob + "/answers", {answers});
+  // Anything edited since the draft landed travels with the answers. Screening
+  // questions pasted in at the last moment used to be silently dropped, because
+  // this only ever sent the panel answers.
+  const payload = {answers, screening: $("screening").value};
+  if (source === "manual"){
+    payload.jd = $("mJd").value;
+    payload.url = $("mUrl").value.trim();
+  }
+  const {ok, data} = await post("/api/job/" + qJob + "/answers", payload);
   if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
   const answered = answers.filter(a => !a.ignored && a.answer.trim()).length;
-  setStatus("Sent " + answered + " answer" + (answered === 1 ? "" : "s") +
+  const extra = payload.screening.trim() ? ", screening questions included" : "";
+  setStatus("Sent " + answered + " answer" + (answered === 1 ? "" : "s") + extra +
             ", rewriting job <b>" + qJob + "</b>…", "busy");
   waitForJob(qJob);
 }
@@ -1012,7 +1107,7 @@ async function openJob(id, quiet){
   $("screening").value = job.screening || "";
   pick("guide", job.guide);
   pick("person", job.person);
-  renderQuestions(job); renderScreening(job);
+  renderQuestions(job); renderScreening(job); renderGithubRefs(job);
   if (job.status !== "done")
     return setStatus("Job <b>" + id + "</b> is " + job.status + ": " + (job.note || ""), "warn");
   finish(job.proposal, job);

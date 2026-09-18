@@ -305,10 +305,13 @@ def _boost_check_once():
     with JOBS_LOCK:
         due = []
         for job in JOBS.values():
-            if (job.get("boost") == "yes"
+            # A time on the row IS the intent to boost. Requiring the dropdown
+            # to be flipped to "yes" as well meant a row with a deadline set sat
+            # there silently. Only an explicit "no" suppresses the alarm now.
+            if (job.get("when")
+                    and str(job.get("boost") or "").lower() != "no"
                     and not job.get("done")
-                    and not job.get("boost_notified")
-                    and job.get("when")):
+                    and not job.get("boost_notified")):
                 when_epoch = _jst_wall_to_epoch(job["when"])
                 if when_epoch is not None and when_epoch <= now:
                     due.append(job)
@@ -324,10 +327,65 @@ def _boost_check_once():
 
 def telegram_proposal_done(job):
     """One short message when a proposal is finished and ready to copy."""
-    lines = ["<b>Proposal done</b>", html.escape(job.get("title") or job["id"])]
+    label = "Proposal rewritten" if job.get("status_was_revising") else "Proposal done"
+    lines = [f"<b>{label}</b>", html.escape(job.get("title") or job["id"])]
     if job.get("url"):
         lines.append(html.escape(job["url"]))
     return telegram_send("\n".join(lines), f"job {job['id']} done")
+
+
+def github_gate_open(job):
+    """True when this job is waiting on a reply from the github channel."""
+    return bool(job.get("awaiting_github")) and not job.get("github_replied")
+
+
+def clear_github_gate(job, reason, reply=None):
+    job["awaiting_github"] = False
+    job["github_replied"] = True
+    job["github_reply"] = reply or {}
+    job["note"] = f"github gate cleared ({reason}), writing continues"
+    save_job(job)
+    print(f"  github gate cleared for job {job['id']}: {reason}", flush=True)
+
+
+def apply_github_reply(body):
+    """A message on the github channel can release a job that is waiting.
+
+    Matched on an explicit job id when the reply carries one. A bare ack with
+    no id releases the single waiting job if there is exactly one, since that
+    is unambiguous, and is ignored when several are waiting rather than
+    guessing which was meant.
+    """
+    job_id = str(body.get("job") or body.get("job_id") or "").strip()
+    with JOBS_LOCK:
+        waiting = [j for j in JOBS.values() if github_gate_open(j)]
+        if job_id:
+            target = JOBS.get(job_id)
+            if target is not None and github_gate_open(target):
+                clear_github_gate(target, f"reply for {job_id}", body)
+                return True
+            print(f"  github reply names job {job_id!r}, which is not waiting", flush=True)
+            return False
+        if not waiting:
+            print("  github ack arrived with nothing waiting", flush=True)
+            return False
+        # A bare ack releases the job that has been waiting longest. Refusing to
+        # guess sounded safer and was worse: the counterpart sends acks without a
+        # job id, so the first time two jobs queued up an ack was discarded and
+        # the job would have waited forever. Oldest-first matches the order the
+        # searches were published in, which is the order they get answered.
+        waiting.sort(key=lambda j: j.get("created", 0))
+        target = waiting[0]
+        extra = f", {len(waiting) - 1} still waiting" if len(waiting) > 1 else ""
+        clear_github_gate(target, f"bare ack, oldest of {len(waiting)} waiting{extra}", body)
+        return True
+
+
+def relay_publish(channel, body):
+    """Post a message to one of the workspace's channels as this worker."""
+    out = relay_call("POST", "/publish", {"channel": channel, "body": body})
+    print(f"  relay published to {channel}: seq {out.get('seq')}", flush=True)
+    return out
 
 
 def queue_save(item):
@@ -372,6 +430,13 @@ def relay_pull(wait=0.0):
     kept = []
     for msg in payload.get("messages", []):
         body = msg.get("body") if isinstance(msg.get("body"), dict) else {}
+        if msg.get("channel") == "github":
+            # Replies land here from whichever worker answers the search.
+            # Our own github_refs posts come back too; those are not replies.
+            if body.get("type") != "github_refs":
+                apply_github_reply(body)
+            relay_call("POST", "/ack", {"channel": msg["channel"], "seq": msg["seq"]})
+            continue
         if _looks_like_a_job(body):
             existing = QUEUE_DIR / f"{msg['seq']:06d}.json"
             if not existing.is_file():        # never clobber a typed-in client name
@@ -708,7 +773,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"jobs": [
                 {k: j.get(k) for k in
                  ("id", "guide", "person", "status", "note", "created", "title", "images",
-                  "url", "boost", "when", "done")}
+                  "url", "boost", "when", "done", "awaiting_github")}
                 for j in rows[:200]
             ]})
         if path.startswith("/api/messages/since"):
@@ -728,6 +793,18 @@ class Handler(BaseHTTPRequestHandler):
             with JOBS_LOCK:
                 ids = [j["id"] for j in JOBS.values() if j["status"] == "revising"]
             return self._send(200, {"ids": ids})
+        if path == "/api/jobs/github_released":
+            # Jobs whose github gate has cleared and which still need a draft.
+            # The writer's monitor polls this: without it a cleared gate was
+            # silent and nothing resumed.
+            with JOBS_LOCK:
+                ids = [j["id"] for j in JOBS.values()
+                       if j.get("github_replied")
+                       and not j.get("awaiting_github")
+                       and not j.get("github_resumed")
+                       and j.get("status") in ("queued", "working")]
+            return self._send(200, {"ids": ids})
+
         if path == "/api/jobs/queued":
             with JOBS_LOCK:
                 ids = [j["id"] for j in JOBS.values() if j["status"] == "queued"]
@@ -812,6 +889,62 @@ class Handler(BaseHTTPRequestHandler):
             if finished is not None:
                 telegram_proposal_done(finished)
             return self._send(200, {"ok": True})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/await_github", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                job["awaiting_github"] = True
+                job["github_replied"] = False
+                job["github_resumed"] = False
+                # The links travel with the arming so the UI can show what is
+                # being waited on, rather than an unexplained pause.
+                repos = data.get("repos")
+                if isinstance(repos, list):
+                    job["github_refs"] = [
+                        {"url": str(r.get("url") or "")[:400],
+                         "why": str(r.get("why") or "")[:600]}
+                        for r in repos if isinstance(r, dict) and r.get("url")
+                    ]
+                job["note"] = "waiting for a reply on the github channel"
+                save_job(job)
+            print(f"  job {job['id']} is waiting on the github channel", flush=True)
+            return self._send(200, {"ok": True, "awaiting_github": True})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/github_ack", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                job["github_resumed"] = True
+                save_job(job)
+            return self._send(200, {"ok": True})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/resume_github", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                if not github_gate_open(job):
+                    return self._send(200, {"ok": True, "note": "was not waiting"})
+                clear_github_gate(job, "released by hand")
+            return self._send(200, {"ok": True, "released": True})
+
+        if path == "/api/relay/publish":
+            channel = str(data.get("channel") or "").strip()
+            if not channel:
+                return self._send(400, {"error": "channel is required"})
+            if "body" not in data:
+                return self._send(400, {"error": "body is required"})
+            try:
+                out = relay_publish(channel, data["body"])
+            except Exception as exc:
+                return self._send(502, {"error": str(exc)})
+            return self._send(200, {"ok": True, **out})
 
         if path == "/api/queue/refresh":
             try:
@@ -941,9 +1074,35 @@ class Handler(BaseHTTPRequestHandler):
                     if q is not None:
                         q["answer"] = str(a.get("answer") or "").strip()
                         q["ignored"] = bool(a.get("ignored"))
+
+                # The panel is not the only thing that can change before a
+                # rewrite. Screening questions pasted in at the last moment, or
+                # an edited job description, used to be dropped on the floor
+                # because this endpoint only ever read the answers.
+                changed = []
+                if "screening" in data:
+                    new_scr = str(data.get("screening") or "").strip()
+                    if new_scr != (job.get("screening") or ""):
+                        job["screening"] = new_scr
+                        changed.append("screening questions")
+                for field in ("jd", "url"):
+                    if field in data:
+                        val = str(data.get(field) or "").strip()
+                        if val and val != (job.get(field) or ""):
+                            job[field] = val
+                            changed.append("job description" if field == "jd" else "url")
+
                 job["status"] = "revising"
                 job["status_was_revising"] = True
                 job["note"] = "answers submitted, writing the final version"
+                if changed:
+                    job["note"] += " (also updated: " + ", ".join(changed) + ")"
+                    print(f"  job {job['id']} rewrite carries new {', '.join(changed)}",
+                          flush=True)
+                # A rewrite is a new version, so it gets its own alarm. The
+                # per-version reset keeps two sessions posting the SAME version
+                # from double-firing, which is what the flag was added for.
+                job["notified_done"] = False
                 save_job(job)
             return self._send(200, {"ok": True})
 

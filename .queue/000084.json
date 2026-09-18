@@ -1,0 +1,32 @@
+{
+  "seq": 84,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1789766736.6569715,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Senior AI / Computer Vision Engineer -  3D Reconstruction",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.93 of 13 reviews",
+      "location": "🇦🇺 Australia",
+      "registered": "30/04/2024",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0b66833688077e",
+    "aiReason": "Job focuses on 3D computer vision, mesh manipulation, and web rendering—outside core data analytics, ETL, PowerBI, Tableau focus.",
+    "published": "Sep 18, 2026 9:22 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022101058845332698464",
+    "receivedAt": "2026-09-18T21:24:36.000Z",
+    "description": "We’re looking for an experienced AI / Computer Vision Engineer to help build a lightweight proof of concept for a new consumer health-tech experience.\nThe project involves using multiple consumer-uploaded images to generate an approximate interactive 3D representation, then visualising a transition between an initial state and an illustrative future state.\nThis is not an LLM/chatbot project. We’re specifically looking for someone strong in visual AI, computer vision and 3D geometry.\nInitial scope\n* Process multiple smartphone images of the same subject\n* Detect and segment relevant visual features\n* Identify landmarks / geometry from 2D imagery\n* Generate, select or deform an existing 3D mesh to approximately represent the source imagery\n* Create a second illustrative 3D state\n* Animate the transition between both states\n* Render the model interactively in a web browser\n* Support basic rotation, zoom and state switching\nWe are deliberately starting with a lightweight proof of concept, rather than trying to solve the entire technical problem in V1.\nIdeal experience\n* Computer vision\n* 2D-to-3D or multi-view reconstruction\n* Image segmentation\n* Landmark detection\n* 3D geometry / mesh manipulation\n* Point clouds\n* Python\n* PyTorch\n* OpenCV\n* Open3D / Trimesh or similar\n* STL / OBJ / PLY workflows\n* Three.js / WebGL is highly desirable\nExperience in any of the following would be particularly relevant:\nmedical imaging, dental imaging, facial reconstruction, digital humans, body scanning, photogrammetry, AR/VR, anatomical modelling or image-to-3D systems.\nWhat success looks like\nFor the first milestone, we want to provide a small set of sample images and have you produce:\n1. An approximate browser-viewable 3D model derived or adapted from those images\n2. A second predefined or generated future-state model\n3. A smooth visual transition between the two\n4. An interactive browser demo\nAccuracy does not need to be clinical-grade for this initial POC. The priority is whether the experience can look convincing, personalised and polished enough for a consumer-facing product.\nEngagement\nContract / paid POC initially, with potential for a substantially larger project if the prototype is successful.\nFurther details about the product and use case will be shared with shortlisted candidates under confidentiality.\nWhen applying, please include:\n* Examples of previous 3D reconstruction or computer vision work\n* Any projects involving image-to-3D, meshes, point clouds or anatomical modelling\n* Your recommended technical approach for a lightweight POC\n* What you believe can realistically be achieved in the first 2–4 weeks\n* Your availability\nPlease do not apply if your experience is primarily LLMs, chatbots or prompt engineering without substantial computer vision / 3D work.",
+    "emailSubject": "New Job: Senior AI / Computer Vision Engineer -  3D Reconstruction",
+    "aiQualification": "Not qualified",
+    "vollnaProjectId": "75252455"
+  },
+  "client_name": "",
+  "used": false
+}

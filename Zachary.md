@@ -235,9 +235,25 @@ certification.
    Python and SQL pipelines" is the strongest concrete story in here.
 5. Match the job's vocabulary. If the post says "data pipeline", write "data pipeline".
 
+## Corrections to the resume
+
+Facts confirmed by the user that the resume does not contain. These override anything the
+document's silence might imply.
+
+- **Salesforce, including the Salesforce data model.** Confirmed 2026-09-18. He has worked the
+  Salesforce data model and writing derived attributes back into it. The resume never mentions
+  Salesforce, which caused four proposals to be written as though he had none. **Claim Salesforce
+  confidently.** Detail still thin: which objects, admin versus integration, and whether any
+  Agentforce, Flow or Apex work is included are unknown, so do not invent specifics.
+- **CPG experience: Liquid Death.** Confirmed 2026-09-14. Canned water through grocery,
+  convenience and mass retail alongside ecommerce. He built the purchase-to-stock matching
+  reconciling sales against on-hand and vendor inventory, and the predictive restock models.
+  Whether he worked in SPINS, Circana or Nielsen by name is still unknown.
+
 ## Gaps to be honest about
 
-The resume shows no evidence of these, so do not claim them:
+The resume shows no evidence of these, so do not claim them. **Check the corrections above
+first**, since the resume's silence has already been wrong twice:
 
 - LLM / generative AI application work, RAG, or agent frameworks. He has classical ML, neural
   networks, NLP and image processing, not GPT/Claude application engineering.

@@ -110,15 +110,39 @@ A job carries a `client` name from the UI when the user supplies one; use it in 
   to lead with, rate and availability, tone and positioning calls. Anything where you had to
   guess about *your own side* rather than about the client's.
 
-**Questions come first, before the proposal is written.** Read the job description, do the
-analysis the selected guide asks for, and post the question list straight away. Then write. Do not
-append questions to a finished proposal: that hands the user a draft they cannot judge yet and
-turns every job into two rounds.
+## The order of work on one job
 
-**Still never block.** Posting the questions does not mean waiting for them. Write the proposal
-while they sit in the panel, decide every open point yourself, and ship. If answers arrive before
-the draft is posted, fold them in and the first version is already final. If they don't, the
-shipped assumptions stand and the answers only ever improve it.
+Pressing **Write proposal** starts this sequence. It is the same in Auto and Manual mode, and
+nothing in it is optional.
+
+1. **Search GitHub** for one or two projects genuinely close to the job description. This comes
+   before the analysis and before any drafting.
+2. **Decide: send or carry on.** Repositories found means publish them to the `github` channel and
+   hold, which shows the links above the status bar with an unticked box, presses Pause, and sets
+   the status to *waiting for github reply*. Nothing found means send nothing and go straight to
+   step 3.
+3. **Analyse the job** the way the selected guide asks. Keep a running list of anything you cannot
+   settle yourself, but do not post it yet.
+4. **Write the proposal against the selected guide.** Whichever guide the request names, followed
+   exactly: `general.md` unless told otherwise. The guide decides the shape, the length, the bold
+   rules and the closing move.
+5. **Keep adding to the list while writing.** Most of it surfaces here rather than in the analysis:
+   a claim that turns out to need checking, a number only the user can set, a positioning call with
+   two defensible answers.
+6. **Post the proposal and the question list together.** The list goes up with the finished draft,
+   not before it, so the user reads the questions knowing what the proposal already assumed.
+
+The gate at step 2 releases on a reply naming the job, on a bare acknowledgement, or on a person
+pressing Resume.
+
+**Questions go up with the proposal, not ahead of it.** Every question states the assumption the
+draft already shipped, which is only possible once the draft exists. **One round: all of them on
+version 1, none on version 2.** If something surfaces during the rewrite, settle it and say so in
+the note rather than opening a second round.
+
+**Still never block.** Collecting questions does not mean waiting for answers. Decide every open
+point yourself, ship the draft, and let the panel carry what you had to assume. The proposal is
+complete and sendable as it stands; answers only ever improve it.
 
 Post the list like this:
 
@@ -146,6 +170,51 @@ the same as your own open questions: the client wrote these and they get read be
 letter, so treat them as the more important half.
 
 **One round of questions. Version 1 carries all of them, version 2 carries none.**
+
+**On the first write, search GitHub before writing anything.** When a job is written for the
+first time (the **Write proposal** button, never a rewrite), the repository search is the *first*
+step, ahead of the job analysis and ahead of any drafting. Both modes: a job typed into Manual
+gets the same search as one ticked off the Auto queue.
+
+**The sequence, in order:**
+
+1. **Search GitHub** for one or two repositories genuinely close to what the job describes.
+2. **Publish the result** to the relay's `github` channel — the job id, the job title, and the
+   URLs found.
+3. **If repositories were found, stop and wait.** Arm the gate, which makes the UI show the
+   Pause button as pressed with Resume available, and the status line read *waiting for github
+   reply*. Do not draft while the gate is closed.
+4. **If the description could not carry a search, send nothing and keep going.** No publish, no
+   gate, no pause: write the proposal immediately. The channel only ever hears about jobs that
+   produced repositories, so a message arriving there always carries something to look at.
+
+```
+# 2. found one or two
+curl -s -X POST localhost:8765/api/relay/publish -H 'content-type: application/json' -d '{
+  "channel":"github",
+  "body":{"type":"github_refs","job":"<id>","title":"<job title>","upworkUrl":"<if any>",
+          "repos":[{"url":"https://github.com/owner/name","why":"one line on the overlap"}]}}'
+
+# 3. then hold, and wait for the channel to answer
+curl -s -X POST localhost:8765/api/job/<id>/await_github -d '{}' -H 'content-type: application/json'
+```
+
+**Judging whether the description can carry a search.** It qualifies when it names something
+implementable: a stack, a platform, a data domain, or a concrete artefact ("Apify actor for CRE
+listings", "GA4 and GTM audit", "NFL power ratings in Sheets"). It does not when it is only a role
+shape with no buildable object ("we need an operations lead", "an analyst to support reporting").
+A forced keyword match is worse than none, and it would also stall the write behind a pointless
+gate. When it does not qualify, the job is simply written with nothing sent to the channel.
+
+**The gate releases three ways:** a reply on the channel naming the job id, a bare acknowledgement
+when exactly one job is waiting, or a person pressing Resume. A bare acknowledgement while several
+jobs wait is ignored rather than guessed at.
+
+**Two rules on what comes back.** Repositories found this way belong to other people, so they are
+build references and never portfolio: the saved rule is no GitHub links in proposals. And say
+plainly in the `why` what actually overlaps, since a repo that merely shares a keyword is noise
+the channel does not need.
+
 
 **The profile is a summary, not an inventory.** Nobody writes every project of their career into a
 markdown file, and the user only sends jobs the person is genuinely confident in. Job selection is

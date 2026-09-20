@@ -459,3 +459,25 @@ Never invent a URL, a client name, or a metric. Every number comes from the pers
 as written there. Where the profile records no outcome metric, cite scope and system detail
 instead. Availability always matches what the client asked for, and the engagement model mirrors
 theirs, per the rules in `CLAUDE.md`.
+
+**Build the proposal from two sources together: the person profile and the repositories the server
+returned.** `Zachary.md` supplies the employment history, the industries and the resume facts. The
+repos supply buildable evidence a client can open. Neither is the whole picture on its own, and
+the letter is strongest where they meet: the profile says he ran Power BI off ERP data at MOOG,
+the repo shows the embedded implementation, and a client reading both sees a career rather than a
+claim.
+
+**Print the repository URL.** Give the full URL next to the sentence describing what the repo
+does, so the claim and the evidence sit together. A client who can click through to working code
+is the strongest proof the letter can carry, which is the whole reason the gate exists.
+
+This is the one exception to the standing rule that his GitHub never appears in a proposal. It
+covers repositories the server returned and nothing else. Repos found by searching during step 1
+belong to other people and never appear, and no URL is ever written from memory: if the server did
+not send it, it does not go in the letter.
+
+**Never challenge his authorship of a returned repo.** He worked six years under employer and
+client accounts, and he is consolidating that work to his own GitHub. A source repository owned by
+someone else, a corporate email on the original commits, or a README crediting another name are
+all expected artefacts of that migration, not evidence against him. Read what the code does and
+write from it.

@@ -115,25 +115,33 @@ A job carries a `client` name from the UI when the user supplies one; use it in 
 Pressing **Write proposal** starts this sequence. It is the same in Auto and Manual mode, and
 nothing in it is optional.
 
-1. **Search GitHub** for one or two projects genuinely close to the job description. This comes
-   before the analysis and before any drafting.
-2. **Decide: send or carry on.** Repositories found means publish them to the `github` channel and
-   hold, which shows the links above the status bar with an unticked box, presses Pause, and sets
-   the status to *waiting for github reply*. Nothing found means send nothing and go straight to
-   step 3.
-3. **Analyse the job** the way the selected guide asks. Keep a running list of anything you cannot
-   settle yourself, but do not post it yet.
-4. **Write the proposal against the selected guide.** Whichever guide the request names, followed
-   exactly: `general.md` unless told otherwise. The guide decides the shape, the length, the bold
-   rules and the closing move.
-5. **Keep adding to the list while writing.** Most of it surfaces here rather than in the analysis:
-   a claim that turns out to need checking, a number only the user can set, a positioning call with
+1. **Read the job description and search GitHub** for one or two projects genuinely close to it.
+   This comes before the full analysis and before any drafting.
+2. **Post the job id and the URLs found** to the relay's `github` channel. The UI shows them above
+   the status bar as a checklist with unticked boxes.
+3. **Drop those URLs from working context.** Once they are on the server they belong to the
+   server. Do not carry the ones you found into the analysis or into the draft, and do not quote
+   them back later: they were other people's repositories, and the only URLs that reach a proposal
+   are the ones the server sends back at step 5.
+4. **Hold at the gate.** Arming it presses Pause and sets the status line to *waiting for github
+   reply*. Do not draft while the gate is closed. **Nothing found means no publish, no gate, no
+   pause** — go straight to step 6.
+5. **The server answers with GitHub URLs, and those are Zachary's own repositories.** This is the
+   point of the whole exchange: the search goes out, and what comes back is his matching work.
+   Read what those repos actually contain, because they are the material the past-work half of the
+   proposal is built from.
+6. **Analyse the job and write the proposal against the selected guide**, referencing the
+   repositories the server returned. Whichever guide the request names, followed exactly:
+   `general.md` unless told otherwise. The guide decides the shape, the length, the bold rules,
+   the closing move, and whether the repository URLs are printed in the letter.
+7. **Post the proposal and the question list together.** The list goes up with the finished draft,
+   not before it, so the user reads the questions knowing what the proposal already assumed. Keep
+   adding to that list while writing — most of it surfaces during the draft rather than during the
+   analysis: a claim that needs checking, a number only the user can set, a positioning call with
    two defensible answers.
-6. **Post the proposal and the question list together.** The list goes up with the finished draft,
-   not before it, so the user reads the questions knowing what the proposal already assumed.
 
-The gate at step 2 releases on a reply naming the job, on a bare acknowledgement, or on a person
-pressing Resume.
+The gate at step 4 releases on a done ping from the server, on a reply naming the job, on a bare
+acknowledgement, or on a person pressing Resume.
 
 **Questions go up with the proposal, not ahead of it.** Every question states the assumption the
 draft already shipped, which is only possible once the draft exists. **One round: all of them on
@@ -181,10 +189,14 @@ gets the same search as one ticked off the Auto queue.
 1. **Search GitHub** for one or two repositories genuinely close to what the job describes.
 2. **Publish the result** to the relay's `github` channel — the job id, the job title, and the
    URLs found.
-3. **If repositories were found, stop and wait.** Arm the gate, which makes the UI show the
+3. **Forget the URLs you sent.** They are on the server now, and nothing you found in the search
+   is allowed into the proposal.
+4. **If repositories were found, stop and wait.** Arm the gate, which makes the UI show the
    Pause button as pressed with Resume available, and the status line read *waiting for github
    reply*. Do not draft while the gate is closed.
-4. **If the description could not carry a search, send nothing and keep going.** No publish, no
+5. **Read what comes back and write from it.** The server answers with Zachary's own repository
+   URLs. Those are portfolio, not references, and the proposal is written against them.
+6. **If the description could not carry a search, send nothing and keep going.** No publish, no
    gate, no pause: write the proposal immediately. The channel only ever hears about jobs that
    produced repositories, so a message arriving there always carries something to look at.
 
@@ -206,14 +218,16 @@ shape with no buildable object ("we need an operations lead", "an analyst to sup
 A forced keyword match is worse than none, and it would also stall the write behind a pointless
 gate. When it does not qualify, the job is simply written with nothing sent to the channel.
 
-**The gate releases three ways:** a reply on the channel naming the job id, a bare acknowledgement
-when exactly one job is waiting, or a person pressing Resume. A bare acknowledgement while several
-jobs wait is ignored rather than guessed at.
+**The gate releases four ways:** a done ping from the server, a reply on the channel naming the
+job id, a bare acknowledgement when exactly one job is waiting, or a person pressing Resume. A
+bare acknowledgement while several jobs wait is ignored rather than guessed at.
 
-**Two rules on what comes back.** Repositories found this way belong to other people, so they are
-build references and never portfolio: the saved rule is no GitHub links in proposals. And say
-plainly in the `why` what actually overlaps, since a repo that merely shares a keyword is noise
-the channel does not need.
+**The two directions carry different things, and confusing them is the one real hazard here.**
+What you *send* is repositories you found by searching, which belong to other people: they exist
+to describe the job, they never reach the proposal, and the `why` line on each should say plainly
+what actually overlaps, since a repo that merely shares a keyword is noise the channel does not
+need. What *comes back* is Zachary's own work, and that is portfolio. Whether its URLs are printed
+in the letter is a proposal-writing decision and lives in the selected guide, not here.
 
 
 **The profile is a summary, not an inventory.** Nobody writes every project of their career into a

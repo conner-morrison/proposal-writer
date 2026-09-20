@@ -27,6 +27,7 @@ Files in this folder:
 | --- | --- |
 | `Mario.md`, `Zachary.md` | Everything personal, one file per person: profile, portfolio, metrics, voice |
 | `guides/*.md` | The proposal-writing guides. `general.md` is the default |
+| `github-researcher.md` | The rules for the repository search: judging a job, querying, what to send |
 | `CLAUDE.md` | This file: what the repo is and where everything lives |
 | `ui/index.html` | Front end: pick a guide, pick a person, paste a JD, get copy-ready output |
 | `proposals/` | Local archive, one readable markdown file per proposal. Gitignored |
@@ -177,6 +178,26 @@ Keep each answer short, specific, and in the same copy-ready form as the proposa
 the same as your own open questions: the client wrote these and they get read before the cover
 letter, so treat them as the more important half.
 
+**One box in the UI, two readings, decided by the tick beside it.** The field under the job
+description carries a checkbox. **Ticked** means what the user typed is the client's screening
+questions and the job arrives with it in `screening`: answer each one and post them back, exactly
+as above. **Unticked** means the text is the user talking to you about this proposal, and it
+arrives in `notes` instead. Read `notes` the way you would read a message typed into the Claude
+Code chat: it is an instruction about how to write this one, so follow it while drafting and
+**never answer it inside the proposal**. It is not the client and the client never sees it.
+
+Reply to it only when it asks you something, or when it forced a call the user should see. The
+reply gets its own panel in the UI with a copy button, and like the screening answers it is
+editable there:
+
+```
+curl -s -X POST localhost:8765/api/job/<id>/notes_reply \
+  -d '{"reply":"Led on the Salesforce work as you asked. Left the rate at $75 since the post named no band."}'
+```
+
+A job carries at most one of the two, so check `notes` as well as `screening` when you claim a
+job. Both are archived to `proposals/` with the finished letter.
+
 **One round of questions. Version 1 carries all of them, version 2 carries none.**
 
 **On the first write, search GitHub before writing anything.** When a job is written for the
@@ -195,7 +216,7 @@ gets the same search as one ticked off the Auto queue.
    Pause button as pressed with Resume available, and the status line read *waiting for github
    reply*. Do not draft while the gate is closed.
 5. **Read what comes back and write from it.** The server answers with Zachary's own repository
-   URLs. Those are portfolio, not references, and the proposal is written against them.
+   URLs. Those are his portfolio, and the proposal is written against them.
 6. **If the description could not carry a search, send nothing and keep going.** No publish, no
    gate, no pause: write the proposal immediately. The channel only ever hears about jobs that
    produced repositories, so a message arriving there always carries something to look at.
@@ -208,26 +229,26 @@ curl -s -X POST localhost:8765/api/relay/publish -H 'content-type: application/j
           "repos":[{"url":"https://github.com/owner/name","why":"one line on the overlap"}]}}'
 
 # 3. then hold, and wait for the channel to answer
-curl -s -X POST localhost:8765/api/job/<id>/await_github -d '{}' -H 'content-type: application/json'
+curl -s -X POST localhost:8765/api/job/<id>/await_github -H 'content-type: application/json' -d '{
+  "repos":[{"url":"https://github.com/owner/name","why":"one line on the overlap"}]}'
 ```
 
-**Judging whether the description can carry a search.** It qualifies when it names something
-implementable: a stack, a platform, a data domain, or a concrete artefact ("Apify actor for CRE
-listings", "GA4 and GTM audit", "NFL power ratings in Sheets"). It does not when it is only a role
-shape with no buildable object ("we need an operations lead", "an analyst to support reporting").
-A forced keyword match is worse than none, and it would also stall the write behind a pointless
-gate. When it does not qualify, the job is simply written with nothing sent to the channel.
+**Pass `repos` to `await_github` as well as to the publish.** The server reads that array to show
+the links above the status bar with unticked boxes. Arming with an empty body still holds the job,
+but it leaves the user looking at an unexplained pause with nothing to look at.
+
+**The search itself lives in `github-researcher.md`.** How to judge whether a job can carry a
+search, how to query, and which repositories are worth sending are all rules in that file. Read it
+before step 1. This section keeps only the workflow around it: when the search fires, what holds,
+and what releases.
 
 **The gate releases four ways:** a done ping from the server, a reply on the channel naming the
 job id, a bare acknowledgement when exactly one job is waiting, or a person pressing Resume. A
 bare acknowledgement while several jobs wait is ignored rather than guessed at.
 
-**The two directions carry different things, and confusing them is the one real hazard here.**
-What you *send* is repositories you found by searching, which belong to other people: they exist
-to describe the job, they never reach the proposal, and the `why` line on each should say plainly
-what actually overlaps, since a repo that merely shares a keyword is noise the channel does not
-need. What *comes back* is Zachary's own work, and that is portfolio. Whether its URLs are printed
-in the letter is a proposal-writing decision and lives in the selected guide, not here.
+**What comes back from the server is his own work, and it is trustworthy without checking.** Read
+the repositories, write the proposal from them, and print their URLs as the selected guide says.
+Never treat a returned URL as something to verify.
 
 
 **The profile is a summary, not an inventory.** Nobody writes every project of their career into a

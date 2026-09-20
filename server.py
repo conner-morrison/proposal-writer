@@ -111,7 +111,8 @@ def derive_title(jd: str, limit: int = 46) -> str:
     return "Untitled job"
 
 
-def new_job(guide_id, person_id, jd, client="", screening="", url="", title=""):
+def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
+            notes=""):
     job = {
         "id": uuid.uuid4().hex[:8],
         "guide": guide_id,
@@ -124,6 +125,12 @@ def new_job(guide_id, person_id, jd, client="", screening="", url="", title=""):
         "title_from_post": bool((title or "").strip()),
         "screening": screening.strip(),
         "screening_answers": [],
+        # One box, two readings, decided by the tick beside it. Ticked, the text
+        # is the client's own screening questions. Unticked, it is the user
+        # talking to the writer about this proposal. They are stored apart so
+        # neither can ever be answered as though it were the other.
+        "notes": notes.strip(),
+        "notes_reply": "",
         "images": None,          # None = unknown, [] = none built, [names] = built
         "url": url.strip(),      # Upwork job URL, from the input box or edited in the history
         "boost": "",             # "yes" | "no" | "" (not decided)
@@ -583,6 +590,11 @@ def export_proposal(job):
             lines += [f"**Q. {a.get('question','').strip()}**", "",
                       a.get("answer", "").strip(), ""]
 
+    if job.get("notes"):
+        lines += ["---", "", "## What the user asked for", "", job["notes"].strip(), ""]
+        if job.get("notes_reply"):
+            lines += ["**Reply:**", "", job["notes_reply"].strip(), ""]
+
     if job.get("questions"):
         lines += ["---", "", "## Questions raised while writing", ""]
         for q in job["questions"]:
@@ -656,7 +668,7 @@ def read_person(person_id: str) -> str:
 
 
 def build_prompt(guide_id: str, person_id: str, jd: str, client: str = "",
-                 screening: str = ""):
+                 screening: str = "", notes: str = ""):
     guide = read_guide(guide_id)
     person = read_person(person_id)
     system = (
@@ -678,7 +690,17 @@ def build_prompt(guide_id: str, person_id: str, jd: str, client: str = "",
             "Answer each of these separately, in the same copy-ready form as the proposal, so "
             "each answer can be pasted into its own field. Keep each one short and specific.\n"
         )
-    user = f"=== JOB DESCRIPTION ===\n{jd.strip()}\n{who}{ask}\nWrite the proposal."
+    told = ""
+    if notes.strip():
+        told = (
+            "\n\n=== WHAT THE USER TOLD YOU ABOUT THIS PROPOSAL ===\n"
+            f"{notes.strip()}\n\n"
+            "This is the user talking to you, exactly as if they had typed it into a chat. It is "
+            "NOT the client and NOT a screening question, so never answer it inside the "
+            "proposal. Follow it while writing. If any of it asks you something, or is a call "
+            "you had to make and they should see, reply to it separately after the proposal.\n"
+        )
+    user = f"=== JOB DESCRIPTION ===\n{jd.strip()}\n{who}{ask}{told}\nWrite the proposal."
     return system, user
 
 
@@ -1033,6 +1055,16 @@ class Handler(BaseHTTPRequestHandler):
                 save_job(job)
             return self._send(200, {"ok": True, "count": len(job["screening_answers"])})
 
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/notes_reply", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                job["notes_reply"] = str(data.get("reply") or "")
+                save_job(job)
+            return self._send(200, {"ok": True})
+
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/questions", path)
         if m:
             with JOBS_LOCK:
@@ -1085,6 +1117,11 @@ class Handler(BaseHTTPRequestHandler):
                     if new_scr != (job.get("screening") or ""):
                         job["screening"] = new_scr
                         changed.append("screening questions")
+                if "notes" in data:
+                    new_notes = str(data.get("notes") or "").strip()
+                    if new_notes != (job.get("notes") or ""):
+                        job["notes"] = new_notes
+                        changed.append("notes from the user")
                 for field in ("jd", "url"):
                     if field in data:
                         val = str(data.get(field) or "").strip()
@@ -1166,7 +1203,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "paste a job description first"})
             try:
                 system, user = build_prompt(guide_id, person_id, jd, data.get("client") or "",
-                                            data.get("screening") or "")
+                                            data.get("screening") or "",
+                                            data.get("notes") or "")
             except FileNotFoundError as exc:
                 return self._send(400, {"error": str(exc)})
 
@@ -1176,7 +1214,7 @@ class Handler(BaseHTTPRequestHandler):
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 job = new_job(guide_id, person_id, jd, data.get("client") or "",
                               data.get("screening") or "", data.get("url") or "",
-                              data.get("title") or "")
+                              data.get("title") or "", data.get("notes") or "")
                 if queued:
                     queued["used"] = True
                     queued["job_id"] = job["id"]

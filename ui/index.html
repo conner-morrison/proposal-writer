@@ -263,7 +263,11 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     </div>
 
     <fieldset style="margin-bottom:0">
-      <legend>Screening questions <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional, answered separately)</span></legend>
+      <legend style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="isScreening" checked style="margin:0;cursor:pointer">
+        <label for="isScreening" id="screenLabel" style="cursor:pointer">Screening questions</label>
+        <span id="screenHint" style="text-transform:none;letter-spacing:0;font-weight:400">(optional, answered separately)</span>
+      </legend>
       <textarea id="screening" placeholder="Paste the client's own questions here, one per line. Each gets its own answer with its own copy button."></textarea>
     </fieldset>
 
@@ -311,6 +315,11 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     <div id="saWrap" style="display:none">
       <div class="legend2">Screening answers <span id="saCount" class="count"></span></div>
       <div id="sanswers"></div>
+    </div>
+
+    <div id="nrWrap" style="display:none">
+      <div class="legend2">Reply <span class="count" style="text-transform:none;letter-spacing:0">· to what you asked for</span></div>
+      <div id="notesreply"></div>
     </div>
 
     <div id="recentWrap" style="display:none">
@@ -467,9 +476,31 @@ async function post(path, body){
 let queueSel = null;
 let source = "auto";        // "auto" = the relay queue, "manual" = pasted below
 
+/* One box, two readings. Ticked, what is in it belongs to the client and gets
+   answered question by question. Unticked, it belongs to the user and is read
+   the way a line typed into the Claude Code chat would be: an instruction about
+   how to write this proposal, never something to answer inside it. */
+const asScreening = () => $("isScreening").checked;
+const splitBox = () => {
+  const text = $("screening").value;
+  return asScreening() ? {screening: text, notes: ""} : {screening: "", notes: text};
+};
+
+function applyBoxMode(){
+  const on = asScreening();
+  $("screenLabel").textContent = on ? "Screening questions" : "Notes for Claude";
+  $("screenHint").textContent = on
+    ? "(optional, answered separately)"
+    : "(optional, read as your instructions for this proposal)";
+  $("screening").placeholder = on
+    ? "Paste the client's own questions here, one per line. Each gets its own answer with its own copy button."
+    : "Tell Claude how you want this one written. Same as typing into the chat: lead with the Salesforce work, keep it under 200 words, quote fixed price.";
+}
+$("isScreening").addEventListener("change", applyBoxMode);
+applyBoxMode();
+
 const payload = () => {
-  const base = {guide: picked("guide"), person: picked("person"),
-                screening: $("screening").value};
+  const base = {guide: picked("guide"), person: picked("person"), ...splitBox()};
   // Auto sends only the seq; the server reads the description, link and client
   // name off the stored relay message. Manual carries its own.
   return source === "manual"
@@ -578,7 +609,7 @@ async function waitForJob(id){
 
     if ((job.questions || []).length !== qCount || job.id !== qJob) renderQuestions(job);
     if (job.status === "done"){
-      loadRecent(false); renderQuestions(job); renderScreening(job);
+      loadRecent(false); renderQuestions(job); renderScreening(job); renderNotesReply(job);
       finish(job.proposal, job);
       // The proposal and the screening answers are posted as separate calls,
       // so the answers can land a moment after the job is marked done. Without
@@ -657,6 +688,7 @@ $("convert").addEventListener("click", () => {
 
 $("clear").addEventListener("click", () => {
   $("screening").value = "";
+  $("isScreening").checked = true; applyBoxMode();
   if (source === "manual"){
     $("mJd").value = ""; $("mUrl").value = "";
   } else {
@@ -954,6 +986,7 @@ async function refreshExtras(id){
   const shown = document.querySelectorAll("#sanswers .sa").length;
   if ((job.screening_answers || []).length !== shown) renderScreening(job);
   if ((job.questions || []).length !== qCount) renderQuestions(job);
+  renderNotesReply(job);
 }
 
 /* The repository links sent to the github channel, shown above the status bar.
@@ -1002,20 +1035,60 @@ function renderScreening(job){
     const q = document.createElement("div");
     q.className = "sq";
     q.textContent = (i + 1) + ". " + it.question;
-    const body = document.createElement("div");
-    body.className = "sabody";
-    body.textContent = ready;
-    const btn = document.createElement("button");
-    btn.className = "ghost";
-    btn.textContent = "Copy answer";
-    btn.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(ready);
-      btn.textContent = "Copied";
-      setTimeout(() => { btn.textContent = "Copy answer"; }, 1200);
-    });
-    box.append(q, body, btn);
+    const body = editableBody(ready);
+    box.append(q, body, copyButton(body, "Copy answer"));
     host.append(box);
   });
+}
+
+/* Answers land as a draft, not a verdict. Every one of them is editable in
+   place, and the copy button reads whatever is in the box at the moment it is
+   pressed, so an edit never has to be made twice. */
+function editableBody(text){
+  const body = document.createElement("div");
+  body.className = "sabody";
+  body.contentEditable = "true";
+  body.spellcheck = false;
+  body.style.whiteSpace = "pre-wrap";
+  body.style.outline = "none";
+  body.textContent = text;
+  body.addEventListener("focus", () => { body.style.boxShadow = "inset 0 0 0 1px var(--muted)"; });
+  body.addEventListener("blur",  () => { body.style.boxShadow = ""; });
+  return body;
+}
+
+function copyButton(body, label){
+  const btn = document.createElement("button");
+  btn.className = "ghost";
+  btn.textContent = label;
+  btn.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(body.innerText);
+    btn.textContent = "Copied";
+    setTimeout(() => { btn.textContent = label; }, 1200);
+  });
+  return btn;
+}
+
+/* The answer to what the user asked for, when the box was read as notes rather
+   than as the client's questions. Same shape as a screening answer: editable,
+   with its own copy button. */
+function renderNotesReply(job){
+  const wrap = $("nrWrap"), host = $("notesreply");
+  const reply = (job.notes_reply || "").trim();
+  if (!reply){ wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  host.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "sa";
+  if ((job.notes || "").trim()){
+    const q = document.createElement("div");
+    q.className = "sq";
+    q.textContent = job.notes.trim();
+    box.append(q);
+  }
+  const body = editableBody(markdownToCopyReady(reply));
+  box.append(body, copyButton(body, "Copy reply"));
+  host.append(box);
 }
 
 let qJob = null, qCount = 0;
@@ -1071,7 +1144,7 @@ async function submitAnswers(){
   // Anything edited since the draft landed travels with the answers. Screening
   // questions pasted in at the last moment used to be silently dropped, because
   // this only ever sent the panel answers.
-  const payload = {answers, screening: $("screening").value};
+  const payload = {answers, ...splitBox()};
   if (source === "manual"){
     payload.jd = $("mJd").value;
     payload.url = $("mUrl").value.trim();
@@ -1079,7 +1152,8 @@ async function submitAnswers(){
   const {ok, data} = await post("/api/job/" + qJob + "/answers", payload);
   if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
   const answered = answers.filter(a => !a.ignored && a.answer.trim()).length;
-  const extra = payload.screening.trim() ? ", screening questions included" : "";
+  const extra = payload.screening.trim() ? ", screening questions included"
+              : payload.notes.trim() ? ", with your notes" : "";
   setStatus("Sent " + answered + " answer" + (answered === 1 ? "" : "s") + extra +
             ", rewriting job <b>" + qJob + "</b>…", "busy");
   waitForJob(qJob);
@@ -1104,10 +1178,14 @@ async function openJob(id, quiet){
   catch { return setStatus("<b>Could not load job " + id + ".</b>", "bad"); }
   openJobId = id;
   markActiveJob();
-  $("screening").value = job.screening || "";
+  // Restore the box the way the job was written: notes mean the tick was off.
+  const hadNotes = !!(job.notes || "").trim();
+  $("isScreening").checked = !hadNotes;
+  $("screening").value = (hadNotes ? job.notes : job.screening) || "";
+  applyBoxMode();
   pick("guide", job.guide);
   pick("person", job.person);
-  renderQuestions(job); renderScreening(job); renderGithubRefs(job);
+  renderQuestions(job); renderScreening(job); renderNotesReply(job); renderGithubRefs(job);
   if (job.status !== "done")
     return setStatus("Job <b>" + id + "</b> is " + job.status + ": " + (job.note || ""), "warn");
   finish(job.proposal, job);

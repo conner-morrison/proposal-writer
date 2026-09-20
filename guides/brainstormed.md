@@ -99,8 +99,10 @@ Each numbered item is one paragraph, separated by a blank line.
 
 **1. Attractive starter. No bold anywhere in it.**
 
-- `Hi 👋` on its own line, or `Hi [name] 👋` when the post gives you a name. **Not bolded.**
-- Then, immediately, the closest thing already built: "I've built ..." and the real project.
+- **Open with `🔷` and no line break after it.** The first sentence runs on from the emoji, on the
+  same line. There is no greeting: no "Hi", no name, no wave. The letter starts on the work.
+- So the very first characters are `🔷` followed by the closest thing already built: "I've
+  built ..." and the real project.
 - Describe it in the client's terms, not ours. If they say listing tool, the sentence should
   contain their words, not our internal framing.
 - Two or three sentences. This is proof, not a portfolio tour.
@@ -127,10 +129,24 @@ Two or three sentences. No more.
   their brief back to them, explaining what you're about to explain, and telling them why you
   found the post interesting all belong on the floor.
 
-**3. The solution, as our approach. A numbered list, never a block of prose. No bold anywhere in
-this paragraph, including the word Approach.**
+**3. The solution, as our approach. Optional. A numbered list, never a block of prose. No bold
+anywhere in this paragraph, including the word Approach.**
 
-Lay it out exactly like this:
+**Include it in two cases, and leave it out otherwise:**
+
+- **The job description asks for one.** A plan, a methodology, "how would you tackle this", a
+  proposed process. Then it is mandatory and it gets the space it needs.
+- **It is not asked for, but laying out the sequence would genuinely win the client over.** A
+  project with real stages, a client who sounds anxious about how the work would actually run, a
+  brief where the order of operations is the insight. Then it earns its place by being persuasive,
+  not by being thorough.
+
+**Leave it out everywhere else.** Small or ad-hoc work, a client who wants a rate and a start
+date, a post that already describes the process and just needs someone to run it, or a job where
+the steps would be obvious to anyone in the trade. A three-step plan for a two-day fix reads as
+padding, and it pushes the blocks that actually sell further down the page.
+
+When it is in, lay it out exactly like this:
 
 ```
 Approach
@@ -173,6 +189,8 @@ That measurement work is most of what I do.
 The sample photos and your findings.
 ```
 
+- **If they ask how you would approach the work, paragraph 3 is mandatory** and this item points
+  back to it rather than repeating it.
 - **If they ask about similar projects, that is already answered in paragraph 1** and does not need
   its own item here. Either leave it out or point back to it in a few words. Repeating it wastes
   the client's attention on something they have already read.
@@ -262,7 +280,8 @@ sentence into a job that isn't about garments.
 that does.** Run the first rule against their existing data and report where it disagrees.
 Reconcile one month against their own books. Stand up one integration end to end and show the
 output. Replay one week of their history. The test should be the first step of the approach in
-paragraph 3, shrunk to something they can judge in days.
+paragraph 3, shrunk to something they can judge in days. When paragraph 3 was left out, shrink
+whatever the first real move on this job would have been instead.
 
 ---
 

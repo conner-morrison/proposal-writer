@@ -18,15 +18,15 @@ industries, portfolio with case-study links and verbatim metrics, working style,
 the profile for whoever the proposal is for before drafting anything, and take every claim, link
 and number from it. Never mix two people's facts.
 
-**All proposal-writing instructions live in `guides/`.** `guides/general.md` is the default. This
-file holds neither the profile nor the guide, so each stays a single source of truth.
+**All proposal-writing instructions live in `guides/`.** `guides/brainstormed.md` is the default.
+This file holds neither the profile nor the guide, so each stays a single source of truth.
 
 Files in this folder:
 
 | File | Holds |
 | --- | --- |
 | `Mario.md`, `Zachary.md` | Everything personal, one file per person: profile, portfolio, metrics, voice |
-| `guides/*.md` | The proposal-writing guides. `general.md` is the default |
+| `guides/*.md` | The proposal-writing guides. `brainstormed.md` is the default |
 | `github-researcher.md` | The rules for the repository search: judging a job, querying, what to send |
 | `CLAUDE.md` | This file: what the repo is and where everything lives |
 | `ui/index.html` | Front end: pick a guide, pick a person, paste a JD, get copy-ready output |
@@ -47,13 +47,13 @@ purge does not: it trims the working list at 20:30 JST, it does not throw away f
 
 ## How to write a proposal
 
-The instructions moved out of this file. **Read `guides/general.md`** before drafting anything, and
-follow it exactly. Additional guides will be added to `guides/` over time; use whichever one the
-user names, and `general.md` when they name none.
+The instructions moved out of this file. **Read `guides/brainstormed.md`** before drafting
+anything, and follow it exactly. Additional guides will be added to `guides/` over time; use whichever one the
+user names, and `brainstormed.md` when they name none.
 
 Two inputs decide every proposal:
 
-1. **Which guide** — from `guides/`, default `general.md`.
+1. **Which guide** — from `guides/`, default `brainstormed.md`.
 2. **Which person** — `Mario.md` or `Zachary.md`. Ask if the job description makes it ambiguous
    and the answer would materially change the proposal.
 
@@ -133,7 +133,7 @@ nothing in it is optional.
    proposal is built from.
 6. **Analyse the job and write the proposal against the selected guide**, referencing the
    repositories the server returned. Whichever guide the request names, followed exactly:
-   `general.md` unless told otherwise. The guide decides the shape, the length, the bold rules,
+   `brainstormed.md` unless told otherwise. The guide decides the shape, the length, the bold rules,
    the closing move, and whether the repository URLs are printed in the letter.
 7. **Post the proposal and the question list together.** The list goes up with the finished draft,
    not before it, so the user reads the questions knowing what the proposal already assumed. Keep

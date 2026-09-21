@@ -2,8 +2,7 @@
 
 **Guide id:** `article-based`
 **Use for:** any Upwork job, when you want the short, human, client-first cover letter that
-Upwork's own guidance and working freelancers describe, rather than the long structured pitch in
-`general.md`.
+Upwork's own guidance and working freelancers describe, rather than a long structured pitch.
 
 This guide is built from four sources, read 2026-09-07:
 
@@ -13,7 +12,8 @@ This guide is built from four sources, read 2026-09-07:
 - LinkedIn, "Upwork Proposals: Tips and Tricks" (Alexandra Mosnitska, Mar 20 2021)
 
 The person profile (`Mario.md`, `Zachary.md`, ...) supplies every fact. This file supplies the
-shape. Where the sources disagree with `general.md`, this guide follows the sources.
+shape. Where the sources disagree with the workspace's older structured style, this guide follows
+the sources.
 
 ## The flow, start to finish
 
@@ -62,9 +62,12 @@ visible** until the client clicks.
 
 The sections below expand each step. This one is the order.
 
-## What changes versus the general guide
+## What changes versus the structured pitch
 
-| | `general.md` | `article-based.md` |
+The left column is the long structured style this workspace used to keep in `general.md`, removed
+on 2026-09-21. It is kept here because the contrast is what defines this guide.
+
+| | Structured pitch | `article-based.md` |
 | --- | --- | --- |
 | Length | Under 2000 characters | **200 to 300 words**, three short paragraphs |
 | Voice | Confident and senior | Warm and human, first-name basis |
@@ -131,7 +134,7 @@ there' works well. It's best to avoid outdated phrases like 'To Whom It May Conc
 The greetings actually used across the four sources: `Hi Rebecca,` `Hi Riley,` `Hi Jordan,`
 `Hello Nicki,` `Hi there,` `Hi,` `Hello,` and Mosnitska's `Hey John!`.
 
-**Do not open with `Hi` and a wave emoji.** That opener is a rule from `general.md` and appears
+**Do not open with `Hi` and a wave emoji.** That opener belongs to the structured style and appears
 nowhere in these sources. On emoji generally, the one mention in the sources is that you "might
 consider using an occasional emoji to draw attention to key points," if it fits the tone. That is
 an occasional in-body device, not a fixed opener.
@@ -219,8 +222,8 @@ From Mosnitska and the Medium piece, both worth applying before spending Connect
 
 ## Delivery format
 
-**None of this section comes from the four articles.** These are this workspace's mechanics, kept
-identical to `general.md` so the output stays paste-ready and the UI keeps working. Everything
+**None of this section comes from the four articles.** These are this workspace's mechanics, the
+same in every guide, so the output stays paste-ready and the UI keeps working. Everything
 above this heading is drawn from the sources.
 
 - **Reply with the proposal and nothing else.** No preamble, no analysis afterward. Commentary only
@@ -229,7 +232,7 @@ above this heading is drawn from the sources.
   (capitals from U+1D5D4, lowercase from U+1D5EE, digits from U+1D7EC), because Upwork renders
   markdown as literal asterisks.
 - **Write no files.** The proposal lives in the reply.
-- **No images by default.** The sources never mention them; they belong to `general.md`. Attach one
+- **No images by default.** The sources never mention them. Attach one
   only if the client asks for a plan or a timeline and it genuinely helps.
 - Sign off with the name from the person profile.
 - Use contractions throughout. No em dashes.

@@ -1,8 +1,17 @@
-# Brainstormed Guide
+# GitHub Friendly
 
-**Guide id:** `brainstormed`
-**Use for:** any Upwork job where you want the proposal built from a read of the client, not just
-a read of the requirements.
+**Guide id:** `github-friendly`
+**Use for:** an Upwork job whose description is concrete enough to build something from, and
+concrete enough to find genuinely similar work on GitHub.
+
+> **This guide is only usable when both of those hold.** The letter opens on repository links, so
+> it has nothing to open with when the search came back empty. The test is the one in
+> `github-researcher.md`: the post has to name something implementable, a stack, a platform, a
+> data domain or a concrete artefact. A post that is only a role shape with no buildable object
+> cannot carry this guide, and that job should be written with `brainstormed.md` instead.
+>
+> Everything below is inherited from `brainstormed.md` except paragraph 1, which is what makes
+> this guide its own thing.
 
 Two phases. First you brainstorm the client out of the job description. Then you write the
 proposal from what you found. The person profile (`Mario.md`, `Zachary.md`, ...) supplies every
@@ -97,37 +106,79 @@ non-negotiable stack. Whatever is unusual about this post and no other.
 
 Each numbered item is one paragraph, separated by a blank line.
 
-**1. Attractive starter. No bold anywhere in it.**
+**1. The repository opener. No bold anywhere in it, and no emoji anywhere in it.**
 
-- **Open with `🔷` and no line break after it.** The first sentence runs on from the emoji, on the
-  same line. There is no greeting: no "Hi", no name, no wave. The letter starts on the work.
-- So the very first characters are `🔷` followed by the closest thing already built: "I've
-  built ..." and the real project.
-- Describe it in the client's terms, not ours. If they say listing tool, the sentence should
-  contain their words, not our internal framing.
-- Two or three sentences. This is proof, not a portfolio tour.
+This paragraph replaces the attractive starter. It is the whole reason this guide exists: the
+letter opens by handing the client working code, and everything after it is support.
 
-**2. The key point of their project. Bold the quoted phrase from the job description.**
+**Greeting.** When the post gives a client name, open with `Hi [name],` and a blank line after it.
+When no name is known, there is no greeting at all: start straight into the first sentence.
 
-Two or three sentences. No more.
+**Then the find, stated as a coincidence.** One sentence carrying the meaning *by chance, I have a
+really similar project I'd built in my GitHub.* Use that sentence as it stands when it fits the
+job, or bend it to the post. What matters is that it sounds natural and professional rather than
+templated, because this line is the one deciding whether they open the rest of the letter at all.
+
+Some shapes that carry the same meaning:
+
+- "By chance, I've already built something very close to this."
+- "This is close to a project already sitting in my GitHub."
+- "As it happens, I built more or less this a while back."
+
+**Then the links, one per line.** The repository URLs the server returned, each alone on its own
+line. Bare URLs: no bullets, no bold, no link text wrapped around them, nothing else on the line.
+
+**Then why they match.** Two or three sentences on what those repositories actually do and how his
+experience lines up with this job, drawn from the repos and the person profile together. Write it
+in the client's words, not ours: if they say listing tool, the sentence contains their words. This
+is what turns the coincidence into evidence.
+
+**2. The head start, and what you would add. Bold the key phrase from the job description.**
+
+**Two or three sentences. No more.** The paragraph below describes a lot of decisions, but the
+output stays the length it already was. The links did the proving; this paragraph only says where
+that leaves the client and what happens next.
+
+**Open on the head start.** One line telling them the work is already part-done, so the
+repositories read as a running start rather than a portfolio piece. When the industry is ordinary,
+use one of these:
+
+- "You and I are not starting from scratch with only experience, we already have a similar project
+  under our belt."
+- "We're already halfway down the road."
+- "We're joining the race halfway through."
+- "It's like having an apartment already built, with only the finishing touches left."
+- Or a better one you write, if it carries more momentum than these do.
+
+**When the industry is specific, rebuild the image out of their world** and keep the meaning
+identical: a construction post takes the apartment line because it already belongs there, a
+logistics post takes freight already loaded, a trading post takes a position already open. Only
+swap when the industry hands you an obvious image, because a forced metaphor reads worse than the
+plain sentence.
+
+**Then say what you would add. Which branch depends on the post:**
+
+- **They named the stack.** Offer to fill what is missing and bring the repository up to
+  everything they listed, so it lands as their requirement fully met and running, rather than a
+  demo that nearly fits.
+- **They did not name the stack.** Show what you would upgrade and why, aimed at the best
+  performance available now.
+
+**Work in where the field is today.** One clause on the current direction of that industry or that
+technology, so the upgrade reads as informed. This is the difference between "I'll improve it" and
+someone who knows what improving it means this year.
+
+**Bold the key phrase from the job description**, somewhere in this paragraph:
 
 - **Quote only the key part, not the whole sentence.** Find the few words that carry the point and
   bold those. A long quotation buries the thing you were pointing at.
-- **Placement is optional.** It can open the paragraph, but it doesn't have to. Dropping it into
-  the middle of your own sentence usually reads more naturally than leading with a quotation.
-- **Show why that key point matters**, proved by something already built, not asserted. Brief
-  approval is fine when the key point is genuinely a smart decision on their part, but skip the
-  flattery and let the evidence carry it.
-- **This is where Phase 1 point 3 gets used**: what they are proud of, suffering from, or willing
-  to continue. One clause, not a sentence of its own.
-  - **Write it as an announcement, never a request.** "Your findings and sample photos will
-    shorten the first week" acknowledges what he's proud of and tells him it has value. "Send me
-    your findings and sample photos" turns his contribution into a chore and spends the close on
-    an ask that should have been the close's own.
-  - The request, if one is needed at all, belongs in paragraph 8. Never in both.
-- Cut anything that isn't the quote, the reason it matters, or the acknowledgement. Restating
-  their brief back to them, explaining what you're about to explain, and telling them why you
-  found the post interesting all belong on the floor.
+- **Placement is optional.** Dropping it into the middle of your own sentence usually reads more
+  naturally than leading with a quotation.
+
+**What this paragraph no longer carries.** In `brainstormed.md` this is where Phase 1 point 3 gets
+acknowledged. Here the head start line is doing that work, and the space is spent, so skip the
+acknowledgement rather than running long. If what they are proud of still needs saying, it belongs
+in paragraph 4.
 
 **3. The solution, as our approach. Optional. A numbered list, never a block of prose. No bold
 anywhere in this paragraph, including the word Approach.**
@@ -227,95 +278,31 @@ The sample photos and your findings.
   ours. A short list reads as focus; an exhaustive one reads as a resume.
 - Only ever name what the person profile supports.
 
-**8. Ending. Short. Two sentences is usually plenty.**
+**8. The close. Fixed. Word for word, every time.**
 
-Three ways to close. **Pick whichever leads this client furthest toward the next step, and never
-default to one shape across every proposal.** If the post already names a next step, that outranks
-the other two.
+The three-way choice is gone from this guide. The letter always ends like this, and nothing is
+added after it:
 
----
+```
+Why start from zero when we're already halfway there?
+Let me know if you are interested.
 
-**Option 1. Propose a verification step.**
+Best,
+Zachary
+```
 
-The purpose is to prove the approach on a small scope, using what they already have, before either
-side commits. **Present it as part of the service**, the step that assures them the proposal
-actually holds against their requirement.
+- **A single newline between the two sentences**, then a blank line, then the sign-off.
+- **The name is the one from the person profile**, so it reads `Zachary` for `Zachary.md` and the
+  profile name for anyone else.
+- **Nothing follows the name.** No postscript, no availability line, no second ask.
+- **Nothing earlier in the letter may ask for anything either.** The close carries the only ask,
+  and it is "let me know if you are interested". A request planted in paragraph 2 or 4 competes
+  with it and leaves the client with two things to answer instead of one.
+- The opening question is the same head start idea paragraph 2 runs on. That repetition is
+  deliberate here: it bookends the letter.
 
-- **Why the word "free" is there.** The whole offer rests on the client risking nothing on either
-  side of the exchange. They hand over one small thing they already have, and they pay nothing to
-  find out whether the approach works. Say both halves out loud, because an unstated price is
-  still a question in their head, and a question is a reason not to reply.
-- **The ask must cost them no effort either.** It has to be something already sitting on their
-  machine: existing photos, a report they already run, a file they already have. Nothing to
-  prepare, nothing to produce, nothing to think about. If they'd have to make something for you,
-  the offer has stopped being free in the only sense that matters to them.
-- **Say it with certainty, not as a favour.** You are running it free because you already know it
-  holds, not because you are discounting to win the work. "Send me three and I'll run them free
-  and tell you what fails" reads as confidence. "I'd be happy to do a free sample for you" reads
-  as pleading. Same word, opposite effect.
-- **If you need nothing from them:** say you'll run the test free on their agreement, and what it
-  will show.
-- **If you need something:** ask for the smallest thing that would expose the hard part.
 
-One shape that works often, though not the only one:
-
-1. Ask for a small, bounded sample of their own hardest material. Name the number, and frame it as
-   their worst case, so they pick what would break it rather than what flatters it.
-2. Promise a specific diagnostic back, free and said so, of a kind only someone who understands
-   the problem could offer.
-3. Say why it tells them more than the proposal does, so it reads as confidence.
-
-The model, for a client whose problem is garment photos:
-
-> "Send me three of your hardest garments, the ones you'd expect to break it, and I'll run them
-> free and tell you which the check would reject and why. That'll tell you more about whether I'm
-> the right person than anything else I can write here."
-
-**The unit changes with the job, and so can the shape.** Three counties for a scraper, one property
-for an analytics audit, the messiest document for an extraction pipeline, one "this number looks
-wrong" case for a lineage job, the slowest page for a performance job. Never copy the garment
-sentence into a job that isn't about garments.
-
-**When that shape doesn't fit the job or the approach you proposed, build a different verification
-that does.** Run the first rule against their existing data and report where it disagrees.
-Reconcile one month against their own books. Stand up one integration end to end and show the
-output. Replay one week of their history. The test should be the first step of the approach in
-paragraph 3, shrunk to something they can judge in days. When paragraph 3 was left out, shrink
-whatever the first real move on this job would have been instead.
-
----
-
-**Option 2. The single best question.**
-
-Use this when there is a genuinely open decision only they can make, and knowing the answer would
-make the solution materially closer to what they actually need. Draft three, then test each:
-
-1. Can the person reading actually answer it?
-2. Does asking it prove something a rival could not have known to ask?
-3. Does it make replying easier rather than harder?
-
-Fold the survivor into the closing sentence.
-
----
-
-**Option 3. Take the next step they named.**
-
-When the post describes what happens next, a demo walkthrough, a paid test task, a code challenge,
-a call, a video, go at it directly and with appetite. They have told you the path, so walking it
-beats inventing one. Be specific about what you'd show or do, not merely willing.
-
----
-
-**Rules across all three.** One ask only. Never stack an offer with a question, or either with a
-request for a call: three asks in a paragraph that should carry one resolve to none of them. The
-close should read like a person wrote it to another person, warm, direct, and easy to act on. If
-nothing above fits, ask for fifteen minutes.
-
-**9. Sign off**
-
-`Best,` and the name from the person profile, on separate lines. Nothing after it.
-
-**10. Images**
+**9. Images**
 
 Ship `milestones.jpg` and `my_approach.jpg` **only when the engagement is multi-week and the
 client is buying a plan.** Skip them when the job is a few days or less, when the model is bench
@@ -465,7 +452,7 @@ already in the draft.
 
 # Delivery format
 
-- **Reply with the proposal and nothing else**, plus the two images when rule 10 calls for them.
+- **Reply with the proposal and nothing else**, plus the two images when rule 9 calls for them.
   Commentary only if asked.
 - One fenced code block, markdown bold converted to Unicode sans-serif bold (capitals U+1D5D4,
   lowercase U+1D5EE, digits U+1D7EC), because Upwork renders markdown as literal asterisks.
@@ -486,9 +473,10 @@ the letter is strongest where they meet: the profile says he ran Power BI off ER
 the repo shows the embedded implementation, and a client reading both sees a career rather than a
 claim.
 
-**Print the repository URL.** Give the full URL next to the sentence describing what the repo
-does, so the claim and the evidence sit together. A client who can click through to working code
-is the strongest proof the letter can carry, which is the whole reason the gate exists.
+**Print the repository URLs, and print them in paragraph 1.** They go as bare URLs, one per line,
+in the block described there, and they appear nowhere else in the letter. A client who can click
+through to working code is the strongest proof the letter can carry, which is why this guide
+spends its opening on them rather than burying them next to a sentence further down.
 
 This is the one exception to the standing rule that his GitHub never appears in a proposal. It
 covers repositories the server returned and nothing else. Repos found by searching during step 1

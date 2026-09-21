@@ -5,7 +5,7 @@ on can reach it. This runs beside it and dials out to the relay instead:
 neither end needs an address anyone can find, and no firewall has to be opened.
 
     python3 proposal_bridge.py --relay https://relay-xxx.up.railway.app/upwork \
-        --channel jobs --person zachary --guide general
+        --channel jobs --person zachary --guide brainstormed
 
 Stdlib only, so it runs wherever python3 does, with nothing to install.
 
@@ -205,7 +205,7 @@ def main() -> None:
     p.add_argument("--channel", default="jobs", help="only forward this channel; '' for all")
     p.add_argument("--worker-id", default=os.environ.get("RELAY_WORKER", "proposal-writer"))
     p.add_argument("--label", default="proposal-writer bridge")
-    p.add_argument("--guide", default=os.environ.get("PROPOSAL_GUIDE", "general"))
+    p.add_argument("--guide", default=os.environ.get("PROPOSAL_GUIDE", "brainstormed"))
     p.add_argument("--person", default=os.environ.get("PROPOSAL_PERSON", ""),
                    help="which profile writes the proposal")
     p.add_argument("--token", default=os.environ.get("RELAY_TOKEN", ""),

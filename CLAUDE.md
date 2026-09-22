@@ -196,8 +196,16 @@ arrives in `notes` instead. Read `notes` the way you would read a message typed 
 Code chat: it is an instruction about how to write this one, so follow it while drafting and
 **never answer it inside the proposal**. It is not the client and the client never sees it.
 
-Reply to it only when it asks you something, or when it forced a call the user should see. The
-reply gets its own panel in the UI with a copy button, and like the screening answers it is
+Reply to it only when it asks you something, or when it forced a call the user should see. **Keep
+the reply short.** Lead with the answer itself, the number or the decision, and give at most a
+sentence or two of reason. The panel is read at a glance, and a long answer buries the part that
+was actually asked for.
+
+**Post it in the same step as the proposal**, alongside `/result` and `/questions`. The page stops
+watching for late arrivals after a couple of minutes, and a reply sent well after the draft can
+miss the window and leave the panel empty.
+
+The reply gets its own panel in the UI with a copy button, and like the screening answers it is
 editable there:
 
 ```
@@ -207,6 +215,11 @@ curl -s -X POST localhost:8765/api/job/<id>/notes_reply \
 
 A job carries at most one of the two, so check `notes` as well as `screening` when you claim a
 job. Both are archived to `proposals/` with the finished letter.
+
+**That same panel is where client research goes**, whether a note was typed or not. When the post
+names their team, company or product, run it down to a domain and report it there, per **Find out
+who they are** in `decision-maker.md`. With no note to answer the panel titles itself *For you*,
+and it is never shown to the client.
 
 **One round of questions. Version 1 carries all of them, version 2 carries none.**
 

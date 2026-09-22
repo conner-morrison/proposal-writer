@@ -1135,11 +1135,22 @@ class Handler(BaseHTTPRequestHandler):
                 job = JOBS.get(m.group(1))
                 if not job:
                     return self._send(404, {"error": "no such job"})
-                lang, body = job.get("language"), job.get("proposal", "")
+                lang = job.get("language")
+                # The page sends what is on screen, so edits made since the
+                # draft landed are what gets translated. Falling back to the
+                # stored proposal keeps the endpoint usable from curl.
+                body = str(data.get("english") or "").strip() or job.get("proposal", "")
                 if not lang:
                     return self._send(400, {"error": "no translatable country on this job"})
                 if not body.strip():
                     return self._send(400, {"error": "no proposal to translate yet"})
+                # A stored translation is only valid for the English that made
+                # it. Once that changes the cache is stale and must be redone.
+                if job.get("translation") and job.get("translation_source", "") != body:
+                    job["translation"] = ""
+                if body != job.get("proposal", ""):
+                    job["proposal"] = body        # keep the edited version as the letter
+                job["translation_source"] = body
                 if job.get("translation"):
                     return self._send(200, {"ok": True, "ready": True,
                                             "translation": job["translation"],
@@ -1160,6 +1171,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(502, {"error": str(exc)})
                 with JOBS_LOCK:
                     job["translation"] = out.strip()
+                    job["translation_source"] = body
                     job["translate_wanted"] = False
                     job["note"] = f"translated into {lang}"
                     save_job(job)
@@ -1175,6 +1187,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not job:
                     return self._send(404, {"error": "no such job"})
                 job["translation"] = str(data.get("translation") or "").strip()
+                job["translation_source"] = job.get("proposal", "")
                 job["translate_wanted"] = False
                 job["note"] = f"translated into {job.get('language') or 'the local language'}"
                 save_job(job)

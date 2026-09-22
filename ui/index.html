@@ -52,8 +52,8 @@ fieldset{border:0;margin-bottom:18px}
 .qrow.writing .qmeta{color:var(--accent)}
 /* Claimed: cannot be re-ticked or removed mid-write, but the link and its
    copy button stay usable, since that is why you would look at it. */
-.qrow.writing input[type=checkbox],.qrow.writing .qdel,
-.qrow.writing .qclient{pointer-events:none}
+.qrow.writing input[type=checkbox],.qrow.writing .qdel{pointer-events:none}
+.qrow.writing .qclient{opacity:1}
 .qtop{display:flex;align-items:flex-start;gap:9px}
 .qtop input[type=checkbox]{flex:none;margin-top:2px;width:15px;height:15px;cursor:pointer}
 .qtitle{flex:1;min-width:0;font-weight:700;line-height:1.35;font-size:13.5px;
@@ -206,6 +206,11 @@ button.tiny{padding:5px 11px;font-size:12px;border-radius:8px}
   background:var(--bg)}
 .sa .sq{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:7px;line-height:1.4}
 .sa .sabody{font-size:14px;line-height:1.5;white-space:pre-wrap;margin-bottom:9px}
+/* Who the client is, picked out so it is findable at a glance in a panel that
+   is read rather than pasted anywhere. */
+.hl{font-weight:700;color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,transparent);
+  border-radius:4px;padding:0 4px}
 .sa button{padding:7px 13px;font-size:13px}
 kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;
   font-size:12px;font-family:inherit}
@@ -324,7 +329,7 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     </div>
 
     <div id="nrWrap" style="display:none">
-      <div class="legend2">Reply <span class="count" style="text-transform:none;letter-spacing:0">· to what you asked for</span></div>
+      <div class="legend2" id="nrLegend">Reply <span class="count" style="text-transform:none;letter-spacing:0">· to what you asked for</span></div>
       <div id="notesreply"></div>
     </div>
 
@@ -362,6 +367,43 @@ function toBold(text){
 }
 function markdownToCopyReady(md){
   return md.replace(/\*\*([\s\S]+?)\*\*/g, (_, inner) => toBold(inner));
+}
+
+/* The inverse. The output box holds converted text, so anything edited in
+   place comes back as Unicode bold rather than markdown. Runs of bold
+   characters are folded back into ** ** so the edited version can be counted,
+   translated and stored in the same form the draft arrived in. */
+function fromBold(ch){
+  const c = ch.codePointAt(0);
+  if (c >= A && c <= A + 25)          return String.fromCharCode(65 + c - A);
+  if (c >= a && c <= a + 25)          return String.fromCharCode(97 + c - a);
+  if (c >= zero && c <= zero + 9)     return String.fromCharCode(48 + c - zero);
+  return null;
+}
+
+function copyReadyToMarkdown(text){
+  let out = "", run = "";
+  const flush = () => { if (run){ out += "**" + run + "**"; run = ""; } };
+  for (const ch of text){
+    const plain = fromBold(ch);
+    if (plain !== null){ run += plain; }
+    else if (run && (ch === " " || ch === "'" || ch === "\u2019" || ch === "-")){
+      // keep a bold run intact across the punctuation that sits inside one
+      run += ch;
+    } else { flush(); out += ch; }
+  }
+  flush();
+  // trailing spaces swept into a run belong outside the markers
+  return out.replace(/\*\*(\s*)([\s\S]*?)(\s*)\*\*/g,
+                     (_, l, inner, r) => inner ? l + "**" + inner + "**" + r : l + r);
+}
+
+/* What is on screen right now, as markdown: the user's edits if they typed
+   into the box, otherwise the draft as it arrived. */
+function currentMarkdown(){
+  const shown = $("output").value;
+  if (sourceMarkdown && markdownToCopyReady(sourceMarkdown) === shown) return sourceMarkdown;
+  return shown.includes("**") ? shown : copyReadyToMarkdown(shown);
 }
 /* Count by code point, so Unicode bold letters count as one character each. */
 const plainLength = (text) => [...text].length;
@@ -684,7 +726,11 @@ async function waitForJob(id){
       // The proposal and the screening answers are posted as separate calls,
       // so the answers can land a moment after the job is marked done. Without
       // these follow-ups the panel would stay empty until the row is reopened.
-      [1500, 4000, 9000].forEach(ms => setTimeout(() => refreshExtras(id), ms));
+      // Screening answers, open questions and the reply to a note are posted
+      // separately from the proposal and can land a little after it. Nine
+      // seconds was not long enough, so keep checking for two minutes and
+      // stop as soon as nothing new has arrived for a while.
+      watchExtras(id);
       return;
     }
     if (job.status === "cancelled"){
@@ -809,11 +855,21 @@ function showLang(which){
 $("langBtn").addEventListener("click", async () => {
   if (!lang.job || !lang.language) return;
   if (lang.showing === "tr") return showLang("en");
+
+  // Whatever is in the box right now is the English, edits included. A cached
+  // translation is only good for the text that produced it, so an edit since
+  // then has to be sent and translated again rather than silently ignored.
+  const live = currentMarkdown();
+  if (live !== lang.english){
+    lang.english = live;
+    lang.translated = null;
+  }
   if (lang.translated) return showLang("tr");
 
   $("langBtn").disabled = true;
   setStatus("Translating into <b>" + lang.language + "</b>\u2026", "busy");
-  const {ok, data} = await post("/api/job/" + lang.job + "/translate", {});
+  const {ok, data} = await post("/api/job/" + lang.job + "/translate",
+                                {english: lang.english});
   if (!ok){
     $("langBtn").disabled = false;
     return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
@@ -836,10 +892,16 @@ $("langBtn").addEventListener("click", async () => {
       $("langBtn").disabled = false;
       showLang("tr");
       setStatus("Showing the <b>" + lang.language + "</b> version.", "ok");
-    } else if (Date.now() - started > 300000){
+    } else if (Date.now() - started > 1800000){
       clearInterval(tick);
       $("langBtn").disabled = false;
-      setStatus("<b>Translation timed out.</b> Is a Claude Code session watching?", "warn");
+      setStatus("<b>Still no translation.</b> Press " + lang.country +
+                " again once Claude Code has written it.", "warn");
+    } else if (Date.now() - started > 20000){
+      const mins = Math.floor((Date.now() - started) / 60000);
+      setStatus("Claude Code is translating into <b>" + lang.language + "</b>\u2026 " +
+                (mins ? mins + "m" : "") + " \u00b7 the button stays disabled until it lands",
+                "busy");
     }
   }, 2000);
 });
@@ -1119,6 +1181,24 @@ function markActiveJob(){
   });
 }
 
+let extrasTimer = null;
+
+/* Poll for anything posted after the proposal, until it stops changing. */
+function watchExtras(id){
+  clearInterval(extrasTimer);
+  const started = Date.now();
+  let last = "";
+  extrasTimer = setInterval(async () => {
+    let job;
+    try { job = await (await fetch("/api/job/" + id)).json(); } catch { return; }
+    if (job.id !== openJobId && job.id !== qJob){ clearInterval(extrasTimer); return; }
+    const sig = [(job.screening_answers || []).length, (job.questions || []).length,
+                 (job.notes_reply || "").length].join("/");
+    if (sig !== last){ last = sig; refreshExtras(id); }
+    if (Date.now() - started > 120000) clearInterval(extrasTimer);
+  }, 2000);
+}
+
 /* Pick up questions or screening answers that arrived after the proposal. */
 async function refreshExtras(id){
   let job;
@@ -1211,6 +1291,26 @@ function copyButton(body, label){
   return btn;
 }
 
+/* Company names, team names and domains are the part of a reply the user scans
+   for, so pick them out. **bold** marks a name; anything that looks like a
+   domain or URL is caught on sight. Emphasis is real markup rather than the
+   Unicode bold used for the proposal, because this panel is read here and
+   never pasted into Upwork, and innerText still copies as clean plain text. */
+function highlightReply(text){
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<span class="hl">$1</span>');
+  // bare domains and URLs, skipping anything already inside a highlight
+  html = html.replace(/\b((?:https?:\/\/)?(?:[a-z0-9][a-z0-9-]*\.)+(?:io|com|net|org|ai|co|dev|app|so|xyz|de|uk|ca)(?:\/[^\s<]*)?)/gi,
+    (m, url, off, str) => {
+      const before = str.slice(0, off);
+      const open = before.lastIndexOf('<span class="hl">');
+      const close = before.lastIndexOf('</span>');
+      if (open > close) return m;                 // already highlighted
+      return '<span class="hl">' + url + '</span>';
+    });
+  return html;
+}
+
 /* The answer to what the user asked for, when the box was read as notes rather
    than as the client's questions. Same shape as a screening answer: editable,
    with its own copy button. */
@@ -1219,16 +1319,23 @@ function renderNotesReply(job){
   const reply = (job.notes_reply || "").trim();
   if (!reply){ wrap.style.display = "none"; return; }
   wrap.style.display = "block";
+  // The panel answers a note when there was one, and otherwise carries what
+  // Claude found out about the client. Label it for whichever it is holding.
+  const asked = (job.notes || "").trim();
+  $("nrLegend").innerHTML = asked
+    ? 'Reply <span class="count" style="text-transform:none;letter-spacing:0">\u00b7 to what you asked for</span>'
+    : 'For you <span class="count" style="text-transform:none;letter-spacing:0">\u00b7 not shown to the client</span>';
   host.innerHTML = "";
   const box = document.createElement("div");
   box.className = "sa";
-  if ((job.notes || "").trim()){
+  if (asked){
     const q = document.createElement("div");
     q.className = "sq";
-    q.textContent = job.notes.trim();
+    q.textContent = asked;
     box.append(q);
   }
-  const body = editableBody(markdownToCopyReady(reply));
+  const body = editableBody("");
+  body.innerHTML = highlightReply(reply);
   box.append(body, copyButton(body, "Copy reply"));
   host.append(box);
 }
@@ -1364,6 +1471,8 @@ async function loadQueue(quiet){
   queueSeen = top;
 }
 
+let queueRedrawPending = null;
+
 function renderQueue(rows){
   const host = $("queue"), empty = $("queueEmpty");
   const open = rows.filter(r => !r.used).length;
@@ -1371,6 +1480,18 @@ function renderQueue(rows){
     ? open + " waiting" + (rows.length - open ? ", " + (rows.length - open) + " written" : "")
     : "";
   empty.style.display = rows.length ? "none" : "block";
+
+  // The list rebuilds itself every 5 seconds. Doing that while someone is
+  // typing a client name destroys the input mid-word and restores the value
+  // the server last knew, which reads as the field refusing to accept text.
+  // Hold the redraw until focus leaves, then let the next poll do it.
+  const focused = document.activeElement;
+  if (focused && host.contains(focused) && focused.tagName === "INPUT"
+      && focused.type === "text"){
+    queueRedrawPending = rows;
+    return;
+  }
+  queueRedrawPending = null;
   host.innerHTML = "";
 
   rows.forEach(r => {
@@ -1450,9 +1571,22 @@ function renderQueue(rows){
     client.type = "text"; client.className = "qclient";
     client.placeholder = "Client name for the greeting (optional)";
     client.value = r.client_name || "";
-    client.addEventListener("change", () => {
+    let clientSave = null;
+    const saveClient = () => {
       post("/api/queue/" + r.seq + "/meta", {client_name: client.value});
       r.client_name = client.value;
+    };
+    // Typing saves on a short delay, so a name survives a page reload even if
+    // the field is never blurred.
+    client.addEventListener("input", () => {
+      r.client_name = client.value;
+      clearTimeout(clientSave);
+      clientSave = setTimeout(saveClient, 600);
+    });
+    client.addEventListener("change", () => { clearTimeout(clientSave); saveClient(); });
+    client.addEventListener("blur", () => {
+      clearTimeout(clientSave); saveClient();
+      if (queueRedrawPending){ const r2 = queueRedrawPending; queueRedrawPending = null; renderQueue(r2); }
     });
 
     row.append(top, meta, client);

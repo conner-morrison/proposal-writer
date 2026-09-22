@@ -92,6 +92,42 @@ non-negotiable stack. Whatever is unusual about this post and no other.
 
 ---
 
+# Find out who they are
+
+**A name in the post is a lead. A domain is the answer.** Whenever the description carries a word
+standing for their team, their company or their product, run it down to a website. A name tells
+you almost nothing on its own; the domain tells you what they sell, how big they are, who they
+sell it to and in what register they talk about it, and all of that changes how the letter should
+read.
+
+Where the name hides:
+
+- Stated outright, sometimes with the domain already attached: "Transformation Insights
+  (www.transformationinsights.io)".
+- As a product rather than a company: "Pipsy should combine real market data...", "the Ask Leaf
+  HTML prototype". The product name is usually easier to search than the company.
+- In a self-description with no name at all: "We are a German Industrial AI company with our own
+  software for Dairy Process Optimization." That is still enough to find them.
+- In the signature, the reviews they have left, or an email address in the post.
+
+**Mark the names.** Wrap the company, the team, the product and the domain in `**` when you write
+the reply. The panel picks those out in colour, and a bare domain or URL is caught even without
+the markers, so the user can find who the client is at a glance instead of reading for it.
+
+**Report what you found in the reply panel**, the one under the proposal, using
+`/api/job/<id>/notes_reply`. That panel already exists for answering a note typed to Claude, and
+it is the right place for this too: it is the user's side of the screen and the client never sees
+it. Give the domain, one line on what they actually do, and anything that would change how the
+proposal is pitched. Keep it short, the same as any other reply in that panel.
+
+**Say so when you could not find them**, in one line, rather than leaving the panel empty. A post
+with no name and nothing searchable is a normal outcome, and knowing the search happened is worth
+a sentence.
+
+**Never put the research in the proposal itself.** Naming their funding round or their headcount
+back at them reads as surveillance rather than diligence. It changes the pitch; it does not become
+the pitch.
+
 # Then pick the guide
 
 The read above decides which guide writes the letter. **The guide is chosen here, not taken from

@@ -111,11 +111,72 @@ def derive_title(jd: str, limit: int = 46) -> str:
     return "Untitled job"
 
 
+
+# Country of the client, read off the "Location:" line Upwork posts carry, and
+# the language a proposal to that client would be written in. English-speaking
+# markets map to English, which is how the UI knows there is nothing to
+# translate. Only the markets that actually show up in this queue are listed;
+# an unlisted country simply leaves the button inactive.
+COUNTRY_LANGUAGE = {
+    "united states": ("United States", None), "usa": ("United States", None),
+    "united kingdom": ("United Kingdom", None), "uk": ("United Kingdom", None),
+    "canada": ("Canada", None), "australia": ("Australia", None),
+    "new zealand": ("New Zealand", None), "ireland": ("Ireland", None),
+    "singapore": ("Singapore", None), "india": ("India", None),
+    "germany": ("Germany", "German"), "austria": ("Austria", "German"),
+    "switzerland": ("Switzerland", "German"),
+    "france": ("France", "French"), "belgium": ("Belgium", "Dutch"),
+    "spain": ("Spain", "Spanish"), "mexico": ("Mexico", "Spanish"),
+    "argentina": ("Argentina", "Spanish"), "colombia": ("Colombia", "Spanish"),
+    "chile": ("Chile", "Spanish"), "peru": ("Peru", "Spanish"),
+    "portugal": ("Portugal", "Portuguese"), "brazil": ("Brazil", "Portuguese"),
+    "italy": ("Italy", "Italian"), "netherlands": ("Netherlands", "Dutch"),
+    "sweden": ("Sweden", "Swedish"), "norway": ("Norway", "Norwegian"),
+    "denmark": ("Denmark", "Danish"), "finland": ("Finland", "Finnish"),
+    "poland": ("Poland", "Polish"), "czechia": ("Czechia", "Czech"),
+    "czech republic": ("Czech Republic", "Czech"),
+    "ukraine": ("Ukraine", "Ukrainian"), "russia": ("Russia", "Russian"),
+    "turkey": ("Turkey", "Turkish"), "greece": ("Greece", "Greek"),
+    "romania": ("Romania", "Romanian"), "hungary": ("Hungary", "Hungarian"),
+    "israel": ("Israel", "Hebrew"),
+    "united arab emirates": ("United Arab Emirates", "Arabic"),
+    "uae": ("United Arab Emirates", "Arabic"),
+    "saudi arabia": ("Saudi Arabia", "Arabic"), "egypt": ("Egypt", "Arabic"),
+    "japan": ("Japan", "Japanese"), "south korea": ("South Korea", "Korean"),
+    "korea": ("South Korea", "Korean"), "china": ("China", "Chinese"),
+    "taiwan": ("Taiwan", "Chinese"), "hong kong": ("Hong Kong", "Chinese"),
+    "vietnam": ("Vietnam", "Vietnamese"), "thailand": ("Thailand", "Thai"),
+    "indonesia": ("Indonesia", "Indonesian"),
+    "philippines": ("Philippines", "Filipino"),
+}
+
+
+def detect_country(jd: str):
+    """(country, language) from the post's Location line, or (None, None).
+
+    language is None for an English-speaking market: the country is known, but
+    there is nothing to translate into.
+    """
+    # Upwork writes this as a bullet inside the Client block, so allow the
+    # list marker: "- Location: <flag> United States".
+    m = re.search(r"^[\s\-*\u2022]*(?:Location|Country)\s*:\s*(.+)$",
+                  jd or "", re.M | re.I)
+    if not m:
+        return None, None
+    # Strip the flag emoji Upwork prefixes and any trailing city detail.
+    raw = re.sub(r"[\U0001F1E6-\U0001F1FF]", "", m.group(1)).strip(" ,.\t")
+    raw = raw.split(",")[-1].strip() if "," in raw else raw
+    return COUNTRY_LANGUAGE.get(raw.lower(), (None, None))
+
+
 def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
-            notes=""):
+            notes="", guide_mode="auto"):
     job = {
         "id": uuid.uuid4().hex[:8],
         "guide": guide_id,
+        # "auto" lets the writer overrule the guide per decision-maker.md;
+        # "manual" means the person chose and the writer must not change it.
+        "guide_mode": "manual" if guide_mode == "manual" else "auto",
         "person": person_id,
         "client": client.strip(),
         "jd": jd.strip(),
@@ -131,6 +192,10 @@ def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
         # neither can ever be answered as though it were the other.
         "notes": notes.strip(),
         "notes_reply": "",
+        # Client's country, for the translate button under the proposal.
+        "country": detect_country(jd)[0],
+        "language": detect_country(jd)[1],
+        "translation": "",
         "images": None,          # None = unknown, [] = none built, [names] = built
         "url": url.strip(),      # Upwork job URL, from the input box or edited in the history
         "boost": "",             # "yes" | "no" | "" (not decided)
@@ -165,6 +230,10 @@ def load_jobs():
             job.setdefault(field, default)
         if not job.get("title"):
             job["title"] = derive_title(job.get("jd", ""))
+        job.setdefault("guide_mode", "auto")
+        if not job.get("country"):
+            job["country"], job["language"] = detect_country(job.get("jd", ""))
+            job.setdefault("translation", "")
         if job.get("status") == "working":
             # nobody is holding it any more, put it back in the queue
             job["status"] = "queued"
@@ -827,6 +896,11 @@ class Handler(BaseHTTPRequestHandler):
                        and j.get("status") in ("queued", "working")]
             return self._send(200, {"ids": ids})
 
+        if path == "/api/jobs/translating":
+            with JOBS_LOCK:
+                ids = [j["id"] for j in JOBS.values()
+                       if j.get("translate_wanted") and not j.get("translation")]
+            return self._send(200, {"ids": ids})
         if path == "/api/jobs/queued":
             with JOBS_LOCK:
                 ids = [j["id"] for j in JOBS.values() if j["status"] == "queued"]
@@ -1055,6 +1129,79 @@ class Handler(BaseHTTPRequestHandler):
                 save_job(job)
             return self._send(200, {"ok": True, "count": len(job["screening_answers"])})
 
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/translate", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                lang, body = job.get("language"), job.get("proposal", "")
+                if not lang:
+                    return self._send(400, {"error": "no translatable country on this job"})
+                if not body.strip():
+                    return self._send(400, {"error": "no proposal to translate yet"})
+                if job.get("translation"):
+                    return self._send(200, {"ok": True, "ready": True,
+                                            "translation": job["translation"],
+                                            "language": lang})
+                job["translate_wanted"] = True
+                job["note"] = f"translating into {lang}"
+                save_job(job)
+            if os.environ.get("ANTHROPIC_API_KEY"):
+                try:
+                    out = call_anthropic(
+                        f"Translate the Upwork proposal below into {lang}, as a native "
+                        f"speaker would write it to a client in {job.get('country')}. Keep "
+                        "every markdown bold marker, every line break, every URL and the "
+                        "sign-off name exactly as they are. Translate nothing inside a URL. "
+                        "Return only the translation.",
+                        body)
+                except Exception as exc:
+                    return self._send(502, {"error": str(exc)})
+                with JOBS_LOCK:
+                    job["translation"] = out.strip()
+                    job["translate_wanted"] = False
+                    job["note"] = f"translated into {lang}"
+                    save_job(job)
+                return self._send(200, {"ok": True, "ready": True,
+                                        "translation": job["translation"], "language": lang})
+            # Bridge mode: the Claude Code session writes it, same as the proposal.
+            return self._send(202, {"ok": True, "ready": False, "language": lang})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/translation", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                job["translation"] = str(data.get("translation") or "").strip()
+                job["translate_wanted"] = False
+                job["note"] = f"translated into {job.get('language') or 'the local language'}"
+                save_job(job)
+            return self._send(200, {"ok": True})
+
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/guide", path)
+        if m:
+            # The writer decides the guide from the job description, per
+            # decision-maker.md, so the dropdown is only ever a default. Stored
+            # back here so the UI and the archived copy name the guide that
+            # actually wrote the letter.
+            want = str(data.get("guide") or "").strip()
+            if want not in {g["id"] for g in list_guides()}:
+                return self._send(400, {"error": f"no guide named {want!r}"})
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                if job.get("guide_mode") == "manual":
+                    return self._send(409, {
+                        "error": "this job's guide was chosen by hand; auto mode off",
+                        "guide": job.get("guide")})
+                was = job.get("guide")
+                job["guide"] = want
+                save_job(job)
+            return self._send(200, {"ok": True, "guide": want, "was": was})
+
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/notes_reply", path)
         if m:
             with JOBS_LOCK:
@@ -1214,7 +1361,8 @@ class Handler(BaseHTTPRequestHandler):
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 job = new_job(guide_id, person_id, jd, data.get("client") or "",
                               data.get("screening") or "", data.get("url") or "",
-                              data.get("title") or "", data.get("notes") or "")
+                              data.get("title") or "", data.get("notes") or "",
+                              data.get("guide_mode") or "auto")
                 if queued:
                     queued["used"] = True
                     queued["job_id"] = job["id"]

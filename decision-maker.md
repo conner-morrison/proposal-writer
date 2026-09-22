@@ -89,3 +89,38 @@ said they are benchmarking against other bids.
 
 Compliance, a named deadline, a rejection list, an ownership demand, a mandatory video, a
 non-negotiable stack. Whatever is unusual about this post and no other.
+
+---
+
+# Then pick the guide
+
+The read above decides which guide writes the letter. **The guide is chosen here, not taken from
+the dropdown.** Whatever the UI was set to is a default, and this decision overrides it.
+
+The test is the one thing the whole workspace is built around: is this post concrete enough that a
+genuinely similar project can be found on GitHub?
+
+| The post | The guide |
+| --- | --- |
+| Concrete enough to find similar work on GitHub, and the search actually returned repositories | `github-friendly` |
+| Anything else | `article-based` |
+
+**Decide it on the outcome, not the hope.** The question is settled by the time the github gate
+releases: repositories came back, or they did not. A post that looked searchable but returned
+nothing goes to `article-based` like any other, because `github-friendly` opens on repository
+links and has nothing to open with.
+
+**Record the choice** so the UI and the archived copy show the guide that actually wrote the
+letter:
+
+```
+curl -s -X POST localhost:8765/api/job/<id>/guide -d '{"guide":"github-friendly"}'
+```
+
+**Say which one you picked and why, in one line**, when you report the job. A silent switch away
+from what the user selected in the dropdown is the kind of thing that should never be a surprise.
+
+**Only decide when the job says you may.** Every job carries `guide_mode`. **`manual` means the
+person picked the guide themselves and this whole section is skipped**: write with what they
+chose. The server enforces it and will reject a guide change on a manual job. `auto` is where the
+table above applies.

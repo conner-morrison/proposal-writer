@@ -18,16 +18,18 @@ industries, portfolio with case-study links and verbatim metrics, working style,
 the profile for whoever the proposal is for before drafting anything, and take every claim, link
 and number from it. Never mix two people's facts.
 
-**All proposal-writing instructions live in `guides/`.** `guides/brainstormed.md` is the default.
-This file holds neither the profile nor the guide, so each stays a single source of truth.
+**All proposal-writing instructions live in `guides/`,** and which one writes a given job is
+decided by `decision-maker.md` rather than fixed. This file holds neither the profile nor the
+guide, so each stays a single source of truth.
 
 Files in this folder:
 
 | File | Holds |
 | --- | --- |
 | `Mario.md`, `Zachary.md` | Everything personal, one file per person: profile, portfolio, metrics, voice |
-| `guides/*.md` | The proposal-writing guides. `brainstormed.md` is the default |
+| `guides/*.md` | The proposal-writing guides. `decision-maker.md` picks one per job |
 | `github-researcher.md` | The rules for the repository search: judging a job, querying, what to send |
+| `decision-maker.md` | Reading the client out of the post, then choosing which guide writes it |
 | `CLAUDE.md` | This file: what the repo is and where everything lives |
 | `ui/index.html` | Front end: pick a guide, pick a person, paste a JD, get copy-ready output |
 | `proposals/` | Local archive, one readable markdown file per proposal. Gitignored |
@@ -47,13 +49,15 @@ purge does not: it trims the working list at 20:30 JST, it does not throw away f
 
 ## How to write a proposal
 
-The instructions moved out of this file. **Read `guides/brainstormed.md`** before drafting
-anything, and follow it exactly. Additional guides will be added to `guides/` over time; use whichever one the
-user names, and `brainstormed.md` when they name none.
+The instructions moved out of this file. **Read `decision-maker.md` first** to read the client
+and choose the guide, then read that guide and follow it exactly. The choice is
+`github-friendly` when the repository search returned something and `article-based` when it did
+not; `brainstormed.md` stays in the folder and is used only when the user names it outright.
 
 Two inputs decide every proposal:
 
-1. **Which guide** — from `guides/`, default `brainstormed.md`.
+1. **Which guide** — decided per job by `decision-maker.md`, not taken from the dropdown.
+   `github-friendly` when the repository search returned something, `article-based` otherwise.
 2. **Which person** — `Mario.md` or `Zachary.md`. Ask if the job description makes it ambiguous
    and the answer would materially change the proposal.
 
@@ -131,11 +135,17 @@ nothing in it is optional.
    point of the whole exchange: the search goes out, and what comes back is his matching work.
    Read what those repos actually contain, because they are the material the past-work half of the
    proposal is built from.
-6. **Analyse the job and write the proposal against the selected guide**, referencing the
-   repositories the server returned. Whichever guide the request names, followed exactly:
-   `brainstormed.md` unless told otherwise. The guide decides the shape, the length, the bold rules,
-   the closing move, and whether the repository URLs are printed in the letter.
-7. **Post the proposal and the question list together.** The list goes up with the finished draft,
+6. **Read the client out of the post, then pick the guide, but only in Auto.** The job carries
+   `guide_mode`. **`manual` means the person chose it and you must write with what they picked**,
+   whatever the decision would have said; the server rejects a guide change on such a job. In
+   `auto`, decide it. Both halves are in `decision-maker.md`:
+   the nine-point read, then the choice. Repositories came back means `github-friendly`; anything
+   else means `article-based`. **The dropdown is only a default, and this decision overrides it.**
+   Record the choice so the UI and the archive name the guide that actually wrote the letter:
+   `POST /api/job/<id>/guide -d '{"guide":"github-friendly"}'`.
+7. **Write the proposal against that guide, followed exactly.** The guide decides the shape, the
+   length, the bold rules, the closing move, and whether the repository URLs are printed.
+8. **Post the proposal and the question list together.** The list goes up with the finished draft,
    not before it, so the user reads the questions knowing what the proposal already assumed. Keep
    adding to that list while writing — most of it surfaces during the draft rather than during the
    analysis: a claim that needs checking, a number only the user can set, a positioning call with
@@ -285,3 +295,25 @@ mirrored to `.jobs/<id>.json`. Build `milestones.jpg` and `my_approach.jpg` as u
 in chat, since the output box is text only. With an API key set, the same button calls the API
 directly and the queue is unused.
 
+
+## The translate button
+
+Under the proposal there is a button labelled with **the client's own country**, read off the
+`Location:` line in the post. It replaced the old Clear button. Pressing it shows the proposal in
+that country's language and relabels itself **English**; pressing it again switches back. It is
+inactive when the post named no country, and when that country already speaks English, since
+there is nothing to translate.
+
+**In bridge mode you write the translation.** The button marks the job and waits, so watch for it
+the way you watch the job queue:
+
+```
+curl -s localhost:8765/api/jobs/translating          # {"ids": [...]}
+curl -s -X POST localhost:8765/api/job/<id>/translation \
+  -d '{"translation":"**Hallo** ..."}'
+```
+
+Translate the markdown, not the converted text. **Keep every bold marker, every line break, every
+URL and the sign-off name exactly as they are**, and never translate anything inside a URL. Write
+it as a native speaker would write to a client in that country, not as a literal rendering of the
+English.

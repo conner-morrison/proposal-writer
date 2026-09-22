@@ -1,0 +1,32 @@
+{
+  "seq": 112,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790062236.3516765,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Senior Full-Stack Developer for AI Forex App",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.89 of 109 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "30/07/2021",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0c8048b413cfbd",
+    "aiReason": "Job aligns with AI, Python, SQL, data pipelines, and some React/JS experience; appears genuine and detailed, no red flags.",
+    "published": "Sep 22, 2026 7:25 AM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102297953713010395",
+    "receivedAt": "2026-09-22T07:28:55.000Z",
+    "description": "I am looking for an experienced full-stack developer to build  a serious AI-powered trading analysis platform for forex and synthetic index traders.\nI previously attempted to build the application using an AI app builder, but the result did not meet the standard I was looking for. I now want an experienced developer who can take the product idea and build a proper, functional and scalable application.\nThis is not simply an AI chatbot.\nPipsy should combine real market data, technical analysis, price action and AI reasoning to help traders analyze potential trading setups.\nI am looking for someone who understands both software development and trading/technical analysis.\nWhat I Want to Build\nPipsy AI should work as an intelligent trading analysis assistant.\nA user should be able to select a trading instrument, view the chart and ask Pipsy to analyze the market.\nThe application should be able to identify and explain things such as:\nMarket structure\nTrend\nSupport and resistance\nPrice action\nSwing highs and lows\nBreak of Structure (BOS)\nChange of Character (CHoCH)\nLiquidity\nLiquidity sweeps\nOrder Blocks\nFair Value Gaps (FVG)\nSupply and demand\nImbalances\nCandlestick patterns\nMulti-timeframe structure\nPotential entry areas\nStop-loss areas\nTake-profit targets\nRisk-to-reward\nTrade invalidation\nConfluence between different factors\nThe goal is to create a product that gives traders structured analysis rather than generic AI trading advice.\nPipsy AI Assistant\nPipsy should be the main AI component of the platform.\nUsers should be able to ask questions such as:\n\"Analyze EURUSD.\"\n\"What is the current market structure?\"\n\"Where is the liquidity?\"\n\"Is there a potential setup?\"\n\"Where is the best entry zone?\"\n\"Where should my stop loss be?\"\n\"What could invalidate this setup?\"\n\"What is the risk-to-reward?\"\n\"Analyze this setup using price action.\"\n\"Give me a multi-timeframe analysis.\"\nPipsy should provide a clear explanation of its analysis.\nFor example:\nMarket: EURUSD\nBias: Bullish\nMarket Structure: Bullish\nLiquidity: Sell-side liquidity swept\nOrder Block: Identified\nFVG: Identified\nEntry Zone: XXX–XXX\nStop Loss: XXX\nTake Profit: XXX\nRisk/Reward: 1:3\nInvalidation: XXX\nThe exact format can be improved by the developer.\nImportantly, Pipsy should also be able to say \"No valid setup\" when the required conditions are not present.\nI do not want the system forcing a trade signal simply because the user asked for one.\nTechnical Analysis Engine\nA major requirement is that the application should not rely entirely on an LLM to interpret everything.\nI want a proper technical-analysis layer that processes market data and provides structured information to the AI.\nThe architecture should ideally work like:\nMarket Data → Technical Analysis → Structured Market Context → AI Reasoning → User\nThe developer should determine the best implementation.\nThe system should be designed to support:\nOHLC/candlestick data\nMarket structure\nBOS\nCHoCH\nSwing points\nLiquidity zones\nLiquidity sweeps\nOrder Blocks\nFair Value Gaps\nSupply/Demand\nSupport/Resistance\nTrend\nVolatility\nMultiple timeframes\nThe AI should use this structured information rather than simply inventing",
+    "emailSubject": "New Job: Senior Full-Stack Developer for AI Forex App",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75267490"
+  },
+  "client_name": "",
+  "used": false
+}

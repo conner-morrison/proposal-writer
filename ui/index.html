@@ -78,6 +78,8 @@ fieldset{border:0;margin-bottom:18px}
 legend{font-size:13px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
 .opts{display:flex;flex-wrap:wrap;gap:9px}
 .opt{position:relative}
+#guides.locked{opacity:.62}
+#guides.locked .opt span{cursor:not-allowed}
 .opt input{position:absolute;opacity:0;width:0;height:0}
 .opt span{display:block;border:1.5px solid var(--line);border-radius:10px;padding:9px 14px;
   cursor:pointer;font-size:15px;user-select:none;transition:.12s}
@@ -227,8 +229,12 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     <h2>Input</h2>
 
     <fieldset>
-      <legend>Proposal guide</legend>
+      <legend style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>Proposal guide</span>
+        <span class="opts" id="guideMode" style="gap:6px"></span>
+      </legend>
       <div class="opts" id="guides"></div>
+      <div class="hint" id="guideHint" style="margin-top:8px"></div>
     </fieldset>
 
     <fieldset>
@@ -308,7 +314,7 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     <div class="row">
       <button class="primary" id="copyOut">Copy proposal</button>
       <button class="ghost" id="convert">Convert markdown</button>
-      <button class="ghost" id="clearOut">Clear</button>
+      <button class="ghost" id="langBtn" disabled title="No client country on this job">Language</button>
     </div>
     <div class="hint">The count is measured on the markdown draft, the way the guide checks it, so
       it runs about 4 characters per bold span above what's in the box. Hard limit 2000.</div>
@@ -426,7 +432,10 @@ function radios(hostId, items, name){
     const input = document.createElement("input");
     input.type = "radio"; input.name = name; input.value = item.id;
     if (savedExists ? item.id === saved : i === 0) input.checked = true;
-    input.addEventListener("change", () => remember("pw." + name, item.id));
+    input.addEventListener("change", () => {
+      remember("pw." + name, item.id);
+      if (name === "guide") remember("pw.guideAuto", item.id);
+    });
     const span = document.createElement("span");
     span.textContent = item.name;
     span.title = item.file;
@@ -451,6 +460,8 @@ async function loadConfig(){
     }
     radios("guides", cfg.guides, "guide");
     radios("people", cfg.people, "person");
+    renderGuideMode();
+    applyGuideMode();
     $("mode").textContent = cfg.mode === "api"
       ? "API mode · " + cfg.model
       : "bridge mode · Claude Code writes it";
@@ -499,8 +510,64 @@ function applyBoxMode(){
 $("isScreening").addEventListener("change", applyBoxMode);
 applyBoxMode();
 
+/* Who owns the guide radios.
+   "auto"   the decision in decision-maker.md picks, and the radios are a read-out
+            of what it picked for the job on screen.
+   "manual" the person picks, and nothing else is allowed to move the selection.
+   Distinct from `source` above, which is where the job description comes from. */
+let guideMode = remembered("pw.guideMode") === "manual" ? "manual" : "auto";
+
+function renderGuideMode(){
+  const host = $("guideMode");
+  host.innerHTML = "";
+  [["auto","Auto"],["manual","Manual"]].forEach(([id,label]) => {
+    const l = document.createElement("label");
+    l.className = "opt";
+    const i = document.createElement("input");
+    i.type = "radio"; i.name = "guidemode"; i.value = id;
+    i.checked = guideMode === id;
+    i.addEventListener("change", () => {
+      guideMode = id; remember("pw.guideMode", id); applyGuideMode();
+    });
+    const sp = document.createElement("span");
+    sp.textContent = label;
+    sp.style.fontSize = "12px"; sp.style.padding = "4px 10px";
+    l.append(i, sp);
+    host.append(l);
+  });
+}
+
+function applyGuideMode(){
+  const auto = guideMode === "auto";
+  $("guides").classList.toggle("locked", auto);
+  document.querySelectorAll('#guides input[type=radio]').forEach(r => { r.disabled = auto; });
+  $("guideHint").innerHTML = auto
+    ? "Chosen per job by <b>decision-maker.md</b>: github-friendly when the repository search "
+      + "returns something, article-based when it does not. The selection below shows what it chose."
+    : "Your choice, kept across refreshes. Nothing overrides it.";
+  // Put the right selection back under the new owner.
+  const want = auto ? remembered("pw.guideAuto") : remembered("pw.guide");
+  if (want) pick("guide", want);
+}
+
+/* The only place the guide selection is allowed to move, so the two owners
+   never fight. Manual selections are remembered separately from decided ones,
+   which is what lets switching modes restore the right one. */
+function setGuide(id, who){
+  if (!id) return;
+  if (who === "decision"){
+    remember("pw.guideAuto", id);
+    if (guideMode !== "auto") return;      // manual is showing, leave it alone
+  } else {
+    remember("pw.guide", id);
+    if (guideMode !== "manual") return;
+  }
+  pick("guide", id);
+}
+
 const payload = () => {
-  const base = {guide: picked("guide"), person: picked("person"), ...splitBox()};
+  const base = {guide: picked("guide"), person: picked("person"),
+                guide_mode: guideMode, ...splitBox()};
   // Auto sends only the seq; the server reads the description, link and client
   // name off the stored relay message. Manual carries its own.
   return source === "manual"
@@ -567,6 +634,7 @@ function finish(markdown, job){
             (n > 2000 ? ", over the 2000 limit" : ", inside the limit") + ".",
             n > 2000 ? "warn" : "ok");
   setImageState(job);
+  setLangButton(job);
 }
 
 /* Bridge mode: the job sits in the queue until the Claude Code session writes it. */
@@ -588,6 +656,8 @@ async function waitForJob(id){
     catch { continue; }
 
     renderGithubRefs(job);
+    // The writer records the guide it decided on; in auto the radios follow it live.
+    setGuide(job.guide, "decision");
 
     // The writer pauses here while it waits for the github channel to answer
     // its repository search. Nothing is stuck: the gate clears on its own when
@@ -697,9 +767,81 @@ $("clear").addEventListener("click", () => {
   }
   setStatus("Input cleared.", "");
 });
-$("clearOut").addEventListener("click", () => {
-  $("output").value = ""; sourceMarkdown = null; updateCount();
-  setStatus("Output cleared.", ""); setImageState(null);
+/* Translate button. Labelled with the client's own country, so it reads as
+   "Germany" rather than a generic Translate, and it toggles to "English" once
+   the translated text is showing. Inactive when the post named no country, and
+   when that country already speaks English, since there is nothing to do. */
+let lang = {job: null, country: null, language: null, english: null, translated: null, showing: "en"};
+
+function setLangButton(job){
+  const b = $("langBtn");
+  lang.job = job && job.id || null;
+  lang.country = job && job.country || null;
+  lang.language = job && job.language || null;
+  lang.english = job && (job.proposal || "").trim() || null;
+  lang.translated = job && (job.translation || "").trim() || null;
+  lang.showing = "en";
+  if (!lang.country){
+    b.disabled = true; b.textContent = "Language";
+    b.title = "No client country on this job";
+  } else if (!lang.language){
+    b.disabled = true; b.textContent = lang.country;
+    b.title = lang.country + " is English speaking, nothing to translate";
+  } else {
+    b.disabled = !lang.english; b.textContent = lang.country;
+    b.title = lang.english ? "Translate into " + lang.language
+                           : "No proposal to translate yet";
+  }
+}
+
+function showLang(which){
+  const md = which === "en" ? lang.english : lang.translated;
+  if (!md) return;
+  lang.showing = which;
+  sourceMarkdown = md;
+  $("output").value = markdownToCopyReady(md);
+  updateCount();
+  $("langBtn").textContent = which === "en" ? lang.country : "English";
+  $("langBtn").title = which === "en" ? "Translate into " + lang.language
+                                      : "Back to English";
+}
+
+$("langBtn").addEventListener("click", async () => {
+  if (!lang.job || !lang.language) return;
+  if (lang.showing === "tr") return showLang("en");
+  if (lang.translated) return showLang("tr");
+
+  $("langBtn").disabled = true;
+  setStatus("Translating into <b>" + lang.language + "</b>\u2026", "busy");
+  const {ok, data} = await post("/api/job/" + lang.job + "/translate", {});
+  if (!ok){
+    $("langBtn").disabled = false;
+    return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+  }
+  if (data.ready){
+    lang.translated = data.translation;
+    $("langBtn").disabled = false;
+    showLang("tr");
+    return setStatus("Showing the <b>" + lang.language + "</b> version.", "ok");
+  }
+  // Bridge mode: Claude Code writes it. Poll until it lands.
+  setStatus("Claude Code is translating into <b>" + lang.language + "</b>\u2026", "busy");
+  const started = Date.now();
+  const tick = setInterval(async () => {
+    let job;
+    try { job = await (await fetch("/api/job/" + lang.job)).json(); } catch { return; }
+    if ((job.translation || "").trim()){
+      clearInterval(tick);
+      lang.translated = job.translation.trim();
+      $("langBtn").disabled = false;
+      showLang("tr");
+      setStatus("Showing the <b>" + lang.language + "</b> version.", "ok");
+    } else if (Date.now() - started > 300000){
+      clearInterval(tick);
+      $("langBtn").disabled = false;
+      setStatus("<b>Translation timed out.</b> Is a Claude Code session watching?", "warn");
+    }
+  }, 2000);
 });
 
 /* Pasting raw markdown into the output box converts it on the spot. */
@@ -1183,7 +1325,9 @@ async function openJob(id, quiet){
   $("isScreening").checked = !hadNotes;
   $("screening").value = (hadNotes ? job.notes : job.screening) || "";
   applyBoxMode();
-  pick("guide", job.guide);
+  // In auto this is the read-out of what the decision picked for this job. In
+  // manual the person owns the radios and opening an old job must not move them.
+  setGuide(job.guide, "decision");
   pick("person", job.person);
   renderQuestions(job); renderScreening(job); renderNotesReply(job); renderGithubRefs(job);
   if (job.status !== "done")

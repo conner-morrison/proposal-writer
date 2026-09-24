@@ -1,0 +1,32 @@
+{
+  "seq": 130,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790210029.3819518,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Data ingestion into warehouse. Data engineering / ETL pipelines, S3, Redshift",
+    "budget": "Hourly Rate: 50 - 200 USD",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.99 of 34 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "23/01/2011",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0d0d4cf1453b68",
+    "aiReason": "Skills and scope match data engineering/ETL, AWS S3/Redshift; detailed, legitimate client; no red flags.",
+    "published": "Sep 24, 2026 12:32 AM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102873428170213517",
+    "receivedAt": "2026-09-24T00:33:22.000Z",
+    "description": "My product team is looking for a data engineer for a fixed-fee, roughly 4 to 8 week project to build a product-level data layer in our warehouse.\nWe work with multiple 3rd parties that house SKU data which we want to tie back to our order data. Imagine that we have the orders already, and they have the order and all the SKUs. We want to pull the SKUs and create the relationships to our order data inside our warehouse.\nThis project is to work with 1 of those 3rd parties, but this needs to be designed so we can integrate the others as needed into the same model.\nBuild an automated, monitored pipeline that loads SKU line items into the warehouse and links each one to its conversion.\nModel a product-level table that Looker and our internal AI tools can query.\nBackfill a defined historical window and document the data model and pipeline.\nThe one-time build is the scope of this engagement; ongoing pipeline maintenance stays with our team afterward.",
+    "emailSubject": "New Job: Data ingestion into warehouse. Data engineering / ETL pipelines, S3, Redshift",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75278209"
+  },
+  "client_name": "",
+  "used": false
+}

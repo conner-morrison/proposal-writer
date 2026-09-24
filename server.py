@@ -528,8 +528,10 @@ def relay_pull(wait=0.0):
             print(f"  relay skipped seq {msg['seq']} from {msg.get('sender','?')}: "
                   f"type={body.get('type','?')} keys={list(body)[:6]}", flush=True)
         relay_call("POST", "/ack", {"channel": msg["channel"], "seq": msg["seq"]})
-    for item in kept:
-        telegram_new_job(item)
+    # New relay jobs are deliberately not announced on Telegram. The queue in
+    # the UI already shows them, and the phone message was noise. Disabled on
+    # the user's instruction, 2026-09-24. telegram_new_job() is kept so this is
+    # one line to put back; the boost and proposal-done messages still send.
     return len(kept)
 
 

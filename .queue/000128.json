@@ -1,0 +1,32 @@
+{
+  "seq": 128,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790173536.6904907,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Power BI Dashboards from SharePoint Excel",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 5.00 of 16 reviews",
+      "location": "🇬🇧 United Kingdom",
+      "registered": "20/04/2018",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0cea55fe4c48de",
+    "aiReason": "Power BI dashboard creation from SharePoint Excel aligns with core skills and positioning; description is specific and legitimate.",
+    "published": "Sep 23, 2026 2:20 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102764683157080861",
+    "receivedAt": "2026-09-23T14:22:18.000Z",
+    "description": "Create two live Power BI dashboards from daily-updated Excel workbooks on SharePoint, one for each company. Each dashboard should include company totals, team or sector breakdowns, monthly tables and charts, and key performance indicators such as YTD closed vs target, % achieved, rolling 3-month trends, quarterly vs target, fill rate, and pipeline. Clean the Summary sheet data, connect both workbooks, set up scheduled refresh, and share the dashboards for named users on desktop and mobile. Deliver PBIP files, a handover call, and a one-page note explaining what feeds each KPI. Acceptance requires 20 figures per dashboard to match the workbook. Timeline: 2 weeks from access confirmed.",
+    "emailSubject": "New Job: Power BI Dashboards from SharePoint Excel",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75275314"
+  },
+  "client_name": "",
+  "used": false
+}

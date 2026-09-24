@@ -1,0 +1,32 @@
+{
+  "seq": 131,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790215129.6232264,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Adaptive recommendation engine for products. Machine learning, cold start, API design.",
+    "budget": "Hourly Rate: 100 - 300 USD",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.99 of 34 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "23/01/2011",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0d121253b8f9ea",
+    "aiReason": "ML engineering, Python, AWS, data pipelines, recommendation system match core skills and positioning; detailed, legitimate brief with no red flags.",
+    "published": "Sep 24, 2026 1:53 AM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102893892674124528",
+    "receivedAt": "2026-09-24T01:56:44.000Z",
+    "description": "Product development team is looking for a firm for a fixed-fee, 3–6 month engagement to turn our working recommendation prototype, which currently runs on a single PC, into a hosted production service.\nThe firm will build an adaptive recommendation engine that personalizes what each user should see based on how their own content performs, with a feedback loop that keeps adjusting to their emerging performance instead of locking the creator into one niche.\nThe engine will be exposed through an API that our web portal and iOS app consume, plus potentially an agent interface (such as an MCP server).\nWhile LLMs could become a part of this eventually, the scope of this project is a recommender, which should not depend on LLM access.\nThe engagement ends with documentation and training so our team owns the system afterward. There is potential for ongoing work as our team are not experts in machine learning systems.\nHosting Python services and scheduled jobs on AWS (ECS or Lambda) with infrastructure-as-code (OpenTofu/Terraform)\nData engineering against our warehouse (Redshift / Aurora), including pipelines for performance data\nRecommender and ranking systems with feedback loops (personalization, cold start, evaluation)\nAPI design for React and iOS consumers, including auth (JWT/Cognito)",
+    "emailSubject": "New Job: Adaptive recommendation engine for products. Machine learning, cold start, API design.",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75278466"
+  },
+  "client_name": "",
+  "used": false
+}

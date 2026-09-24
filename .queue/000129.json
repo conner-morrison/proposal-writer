@@ -1,0 +1,32 @@
+{
+  "seq": 129,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790207632.126556,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "AI Data Analytics Dashboard",
+    "budget": "Hourly Rate: 45 - 90 USD",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 5.00 of 19 reviews",
+      "location": "🇨🇦 Canada",
+      "registered": "30/12/2022",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0d0b0169028212",
+    "aiReason": "Skills, positioning, and description align with data analytics/dashboard/AI work; client appears legitimate with no red flags.",
+    "published": "Sep 23, 2026 11:51 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102908379586463885",
+    "receivedAt": "2026-09-23T23:53:15.000Z",
+    "description": "We need a freelancer to build an AI-powered data analytics dashboard for our business. We have the outline for the dashboard with the metrics we want on there. We need the freelancer to build a easy to read dashboard and the AI capability to analyze the data to create the metrics.",
+    "emailSubject": "New Job: AI Data Analytics Dashboard",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75278061"
+  },
+  "client_name": "",
+  "used": false
+}

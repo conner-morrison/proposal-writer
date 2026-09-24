@@ -1,0 +1,32 @@
+{
+  "seq": 127,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790172638.0970695,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Branded Looker Studio dashboard for a public-sector campaign",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.46 of 77 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "07/12/2013",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0ce99098c985f7",
+    "aiReason": "Qualified – dashboard/visualization focus aligns with my data viz skills (PowerBI/Tableau) and the detailed, legitimate client request shows a real opportunity.",
+    "published": "Sep 23, 2026 2:07 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102761671819386282",
+    "receivedAt": "2026-09-23T14:08:50.000Z",
+    "description": "•\tConnect and blend the sources.\n•\tReporting years run 7 Oct to 6 Oct, not calendar years, so period comparisons need to follow that.\n•\tAbout seven pages: an overview, one per campaign topic, and a data-status page.\n•\tFilters by topic, data owner, status and reporting year.\n•\tSharing restricted to named viewers.\nDesign\nIt needs to be visually simple and follow the campaign's brand, since a generic Looker Studio template won't work for us. We share the brand guidelines, logos, illustrations and a page mockup once you're hired. No red/green performance coding, and WCAG 2.1 AA contrast throughout.\nMilestones\n1.\tOne fully designed page on sample data, for our approval\n2.\tFull build with live data\n3.\tHandoff: a short maintenance guide, a recorded walkthrough, and written steps for transferring the report to another Google account\nYou have: a portfolio of custom-designed Looker Studio dashboards, experience with blended data and GA4, and experience bringing non-native sources into Looker Studio. Public-sector work is a plus.\nTerms: work for hire, all rights assigned to us, NDA, no reuse of the design or data.",
+    "emailSubject": "New Job: Branded Looker Studio dashboard for a public-sector campaign",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75275254"
+  },
+  "client_name": "",
+  "used": false
+}

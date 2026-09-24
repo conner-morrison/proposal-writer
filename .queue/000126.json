@@ -1,0 +1,32 @@
+{
+  "seq": 126,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790172037.9162009,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Build and Optimize a High Frequency Trading Backtester",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.86 of 46 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "10/11/2012",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0ce9169ed75fea",
+    "aiReason": "Requires a test project before hiring (potential unpaid work) – red flag outweighs skill fit.",
+    "published": "Sep 23, 2026 1:58 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022102759183333949126",
+    "receivedAt": "2026-09-23T14:00:30.000Z",
+    "description": "I have been building a backtester inside of Claude and have done some light work of my own and there are 2 gaps:\n1. Reliability of output from any of the LLMs - between drift and memory issues it is a QA challenge\n2. The ability to handle variable outcomes. The LLMs can in theory help with testing thousands of combinations, however - without reliable and consistent outputs that is not useful. Standard coded variable testing 1 at a time can produce reliable results, however thousands of variations may need to be tested - making this a very time consuming process.\nI need someone that can resolve the 2 core issues - reliability and variability testing.\nTo be considered for this role - which will start PT and could lead to full time work with upside in the business it will be used for - we will have to go through a test project to determine the fit.",
+    "emailSubject": "New Job: Build and Optimize a High Frequency Trading Backtester",
+    "aiQualification": "Not qualified",
+    "vollnaProjectId": "75275213"
+  },
+  "client_name": "",
+  "used": false
+}

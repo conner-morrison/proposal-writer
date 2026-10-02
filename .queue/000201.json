@@ -1,0 +1,32 @@
+{
+  "seq": 201,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790895231.1545017,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Servicem8 claude agent",
+    "budget": "not specified",
+    "client": {
+      "rank": "Medium",
+      "reviews": "no reviews",
+      "location": "🇦🇺 Australia",
+      "registered": "30/08/2026",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0f9a86fc1ac704",
+    "aiReason": "The job needs Claude AI integration with ServiceM8, API work, and automation—fits AI/ML and automation skills, but focuses on chatbot/agent setup rather than data analysis/visualization. Still aligns with core AI/ML expertise.",
+    "published": "Oct 1, 2026 10:48 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105790610964603055",
+    "receivedAt": "2026-10-01T22:49:20.000Z",
+    "description": "Hi Evan, I am looking to set up a Claude operations manager/agent for my electrical business. I would like it to integrate with my servicem8 job management software, so it can automatically read notes from jobs and possibly draft quotes etc. I would like to train all of my business operating procedures to Claude and give access to all of my employees so that they can ask it questions instead of me.",
+    "emailSubject": "New Job: Servicem8 claude agent",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75318782"
+  },
+  "client_name": "",
+  "used": false
+}

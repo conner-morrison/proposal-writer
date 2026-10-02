@@ -27,6 +27,97 @@ body{background:var(--bg);color:var(--ink);
 header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
 h1{font-size:30px;letter-spacing:-.5px}
 .sub{color:var(--muted);font-size:15px;margin-top:4px}
+.headright{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+/* Real tabs, not buttons: they sit on the baseline and the active one is the
+   sheet that the page below belongs to, so its bottom edge is open. */
+.toptabs{display:flex;gap:3px;align-items:flex-end;
+  border-bottom:1.5px solid var(--line);margin-bottom:-1.5px;padding:0 2px}
+.toptab{position:relative;padding:9px 18px 10px;font-size:13.5px;font-weight:700;
+  font-family:inherit;cursor:pointer;color:var(--muted);background:transparent;
+  border:1.5px solid transparent;border-bottom:0;border-radius:9px 9px 0 0;
+  margin-bottom:-1.5px}
+.toptab:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.toptab.on{color:var(--accent);background:var(--panel);border-color:var(--line);
+  box-shadow:inset 0 2.5px 0 var(--accent)}
+/* the active tab's own strip of background covers the baseline beneath it */
+.toptab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1.5px;height:1.5px;
+  background:var(--panel)}
+.toptab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.headright .count{padding-bottom:11px}
+.page{display:none}
+.page.on{display:block}
+.dlg{border:0;border-radius:16px;padding:0;margin:auto;background:var(--panel);color:var(--ink);
+  box-shadow:var(--shadow);max-width:470px;width:calc(100% - 32px)}
+.dlg::backdrop{background:rgba(11,37,69,.45)}
+.dlg form{padding:22px}
+.dlg h2{margin:0 0 14px}
+.dlgopts{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.dlgopt{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:11px}
+.dlgopt:has(input:checked){border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.dlgopt input{margin-top:3px;flex:none}
+.dlgopt b{display:block;font-size:13.5px}
+.dlgopt em{display:block;font-style:normal;font-size:12px;color:var(--muted);margin-top:2px}
+.dlglab{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.dlg input[type=text],.dlg input[type=url]{width:100%}
+.dlgerr{color:var(--bad);font-size:12.5px;min-height:18px;margin-top:6px}
+.dlgrow{margin-top:6px}
+.rstatus{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;padding:2px 8px;border-radius:6px;margin-left:8px}
+.rstatus.waiting{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.rstatus.approved{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.rwait{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);
+  font-size:13.5px;border:1.5px dashed var(--warn);border-radius:10px;padding:14px}
+.rtag.registration{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+/* ---- Report page: talking to the server, never about a job ---- */
+.rgrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;align-items:start}
+.rside{padding:16px}
+.rhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.rhead h2{margin:0}
+.rnew{padding:5px 10px;font-size:12px}
+.rfilter{display:flex;gap:5px;margin-bottom:12px}
+.rchip{padding:4px 11px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:999px;background:transparent;color:var(--muted)}
+.rchip.on{color:var(--accent);border-color:var(--accent)}
+.rlist{display:flex;flex-direction:column;gap:6px;max-height:62vh;overflow-y:auto}
+.ritem{text-align:left;width:100%;padding:10px 11px;border:1.5px solid var(--line);
+  border-radius:10px;background:transparent;cursor:pointer;font-family:inherit;color:inherit}
+.ritem:hover{border-color:var(--accent2)}
+.ritem.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.ritem .rt{font-weight:700;font-size:13px;line-height:1.35;word-break:break-word}
+.ritem .rp{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rtag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;padding:1px 6px;border-radius:5px;margin-right:6px;
+  background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted)}
+.rtag.instruction{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.rtag.done{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.rempty,.rnone{color:var(--muted);font-size:13.5px;padding:18px 2px}
+.rmain{padding:18px;min-height:300px}
+.rtop{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+  padding-bottom:12px;border-bottom:1.5px solid var(--line);margin-bottom:14px}
+.rtop h2{margin:0}
+.rmeta{font-size:12px;color:var(--muted);margin-top:4px}
+.rchat{display:flex;flex-direction:column;gap:10px;max-height:52vh;overflow-y:auto;
+  padding-right:4px;margin-bottom:14px}
+.bub{max-width:76%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.5;
+  white-space:pre-wrap;word-break:break-word}
+.bub .who{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;opacity:.75;margin-bottom:3px}
+.bub.server{align-self:flex-start;background:color-mix(in srgb,var(--accent) 10%,transparent);
+  border:1.5px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+.bub.claude{align-self:flex-end;background:color-mix(in srgb,var(--ok) 10%,transparent);
+  border:1.5px solid color-mix(in srgb,var(--ok) 28%,transparent)}
+.bub.user{align-self:flex-end;background:transparent;border:1.5px solid var(--line)}
+.rcompose textarea{width:100%;min-height:70px}
+.rclosed{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);
+  font-size:13.5px;border:1.5px dashed var(--line);border-radius:10px;padding:14px}
+@media (max-width:900px){.rgrid{grid-template-columns:minmax(0,1fr)}}
+.soon{border:1.5px dashed var(--line);border-radius:12px;padding:52px 28px;text-align:center}
+.soon h2{margin:0 0 10px;font-size:20px}
+.soon p{margin:0 auto;max-width:34em;color:var(--muted);font-size:14.5px;line-height:1.55}
 .rule{height:4px;border-radius:3px;margin:14px 0 22px;
   background:linear-gradient(90deg,var(--accent),var(--accent2) 55%,var(--ok))}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
@@ -48,7 +139,28 @@ fieldset{border:0;margin-bottom:18px}
 .qrow{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)}
 .qrow.on{border-color:var(--accent);
   background:color-mix(in srgb,var(--accent) 7%,var(--bg))}
+.qdec{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:7px 0 0 24px;
+  padding:6px 9px;border-radius:8px;border:1.5px solid var(--line)}
+.qdec.bid{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));
+  background:color-mix(in srgb,var(--ok) 7%,transparent)}
+.qdec.skip{border-color:color-mix(in srgb,var(--bad) 35%,var(--line));
+  background:color-mix(in srgb,var(--bad) 6%,transparent)}
+.qdec.check{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));
+  background:color-mix(in srgb,var(--warn) 7%,transparent)}
+.qdecchip{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap}
+.qdec.bid .qdecchip{color:var(--ok)}
+.qdec.skip .qdecchip{color:var(--bad)}
+.qdec.check .qdecchip{color:var(--warn)}
+.qdecwhy{font-size:12px;color:var(--muted);line-height:1.4}
+.qsrc{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:1px 7px;border-radius:5px;background:color-mix(in srgb,var(--accent) 14%,transparent);
+  color:var(--accent)}
 .qrow.writing{opacity:.45}
+/* Written rows stay in the list on purpose, so they can be run again. Marked,
+   not faded: faded means busy, and these are ready to use. */
+.qrow.written{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.qrow.written .qtitle::after{content:"\2713";margin-left:7px;color:var(--ok);font-weight:800}
 .qrow.writing .qmeta{color:var(--accent)}
 /* Claimed: cannot be re-ticked or removed mid-write, but the link and its
    copy button stay usable, since that is why you would look at it. */
@@ -224,10 +336,18 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     <h1>Proposal Writer</h1>
     <div class="sub">Pick a guide, pick a person, paste the job description.</div>
   </div>
-  <div class="count" id="mode">loading…</div>
+  <div class="headright">
+    <nav class="toptabs" id="topTabs">
+      <button class="toptab on" data-page="workplace" type="button">Workplace</button>
+      <button class="toptab" data-page="report" type="button">Report</button>
+      <button class="toptab" data-page="profile" type="button">Profile</button>
+    </nav>
+    <div class="count" id="mode">loading…</div>
+  </div>
 </header>
 <div class="rule"></div>
 
+<div class="page on" id="page-workplace">
 <div class="grid">
 
   <section class="panel">
@@ -346,6 +466,82 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
   </section>
 
 </div>
+</div>
+
+<section class="page" id="page-report">
+  <div class="rgrid">
+    <aside class="panel rside">
+      <div class="rhead">
+        <h2>Threads</h2>
+        <button class="ghost rnew" id="thNew" type="button">New request</button>
+      </div>
+      <div class="rfilter" id="thFilter">
+        <button class="rchip on" data-filter="open" type="button">Open</button>
+        <button class="rchip" data-filter="done" type="button">Completed</button>
+        <button class="rchip" data-filter="all" type="button">All</button>
+      </div>
+      <div id="thList" class="rlist"></div>
+      <div id="thEmpty" class="rempty">Nothing from the server yet.</div>
+    </aside>
+
+    <section class="panel rmain">
+      <div id="thNone" class="rnone">Pick a thread on the left.</div>
+      <div id="thPane" style="display:none">
+        <div class="rtop">
+          <div>
+            <h2 id="thTitle">&mdash;</h2>
+            <div class="rmeta" id="thMeta"></div>
+          </div>
+          <button class="ghost" id="thDone" type="button">Mark complete</button>
+        </div>
+        <div id="thChat" class="rchat"></div>
+        <div id="thCompose" class="rcompose">
+          <textarea id="thText" rows="3" placeholder="Reply to the server…"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" id="thSend" type="button">Send</button>
+            <span class="count" id="thHint">Ctrl+Enter sends</span>
+          </div>
+        </div>
+        <div id="thWait" class="rwait" style="display:none">
+          <span id="thWaitText">Waiting for the server to approve this registration.</span>
+          <button class="ghost" id="thAgain" type="button">Request again</button>
+        </div>
+        <div id="thClosed" class="rclosed" style="display:none">
+          <span>This thread is completed, so there is nothing more to send.</span>
+          <button class="ghost" id="thReopen" type="button">Reopen</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="thDlg" class="dlg">
+    <form method="dialog" id="thDlgForm">
+      <h2 id="dlgTitle">New request</h2>
+      <div class="dlgopts" id="dlgKind">
+        <label class="dlgopt"><input type="radio" name="reqkind" value="general" checked>
+          <span><b>General request</b><em>Ask the server for something.</em></span></label>
+        <label class="dlgopt"><input type="radio" name="reqkind" value="register">
+          <span><b>Register me</b><em>Introduce this project and get an id back.</em></span></label>
+      </div>
+      <label class="dlglab" id="dlgLab" for="dlgInput">Name of request</label>
+      <input id="dlgInput" type="text" placeholder="What are you asking for?">
+      <div class="dlgerr" id="dlgErr"></div>
+      <div class="row dlgrow">
+        <button class="primary" id="dlgOk" value="ok" type="submit">OK</button>
+        <button class="ghost" id="dlgCancel" value="cancel" type="button">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+</section>
+
+<section class="page" id="page-profile">
+  <div class="soon">
+    <h2>Profile</h2>
+    <p>Nothing here yet. The obvious use is reading and editing the person profiles,
+      <code>Zachary.md</code> and <code>Mario.md</code>, from the browser instead of the editor,
+      since those are what every proposal is written from. Say the word and I'll wire it.</p>
+  </div>
+</section>
 </div>
 
 <script>
@@ -1496,16 +1692,18 @@ function renderQueue(rows){
 
   rows.forEach(r => {
     const row = document.createElement("div");
-    // Claimed but no proposal yet: it is being written. A finished one is
-    // removed by the server, so that is the only faded state left.
+    // Three states. Claimed with no proposal yet means it is being written.
+    // Claimed with one means it is done, and the row is deliberately kept so
+    // it can be run again. Neither state stops it being ticked a second time.
     const writing = r.used && !r.has_proposal;
-    row.className = "qrow" + (writing ? " writing" : "")
+    const written = r.used && r.has_proposal;
+    row.className = "qrow" + (writing ? " writing" : "") + (written ? " written" : "")
                   + (queueSel === r.seq ? " on" : "");
 
     const top = document.createElement("div"); top.className = "qtop";
     const tick = document.createElement("input");
     tick.type = "checkbox"; tick.checked = queueSel === r.seq;
-    tick.title = "Write the proposal for this one";
+    tick.title = written ? "Write this one again" : "Write the proposal for this one";
     // One at a time: ticking a row unticks whatever was ticked before.
     tick.addEventListener("change", () => {
       queueSel = tick.checked ? r.seq : null;
@@ -1555,16 +1753,50 @@ function renderQueue(rows){
 
     const meta = document.createElement("div"); meta.className = "qmeta";
     const bits = [];
+    // Where this job came in from. First thing in the line, because two feeds
+    // now land in the same queue and they are not equally trustworthy.
+    if (r.source || r.sender){
+      const src = document.createElement("span");
+      src.className = "qsrc";
+      src.textContent = r.source || r.sender;
+      if (r.sender && r.sender !== r.source) src.title = "sender: " + r.sender;
+      meta.append(src);
+    }
     if (r.budget) bits.push(r.budget);
     if (r.published) bits.push(r.published);
     if (r.location) bits.push(r.location);
     if (r.verified) bits.push("payment verified");
     if (writing) bits.push("writing\u2026");
+    if (written) bits.push(r.written_at
+      ? "written " + new Date(r.written_at * 1000).toLocaleString()
+      : "written");
     bits.forEach(b => { const x = document.createElement("span"); x.textContent = b; meta.append(x); });
     if (!r.has_jd){
       const w = document.createElement("span");
       w.className = "qwarn"; w.textContent = "no description in the post";
       meta.append(w);
+    }
+
+    // The search feed ships a verdict with each job. Show it, and the reasoning
+    // behind it, since that is the part you would otherwise have to go and
+    // work out for yourself.
+    let dec = null;
+    if (r.qualification){
+      const v = String(r.qualification).toLowerCase();
+      const cls = v === "bid" ? "bid" : v === "skip" ? "skip" : "check";
+      const d = document.createElement("div");
+      d.className = "qdec " + cls;
+      dec = d;
+      const chip = document.createElement("span");
+      chip.className = "qdecchip";
+      chip.textContent = r.qualification;
+      d.append(chip);
+      if (r.reason){
+        const why = document.createElement("span");
+        why.className = "qdecwhy";
+        why.textContent = r.reason;
+        d.append(why);
+      }
     }
 
     const client = document.createElement("input");
@@ -1589,7 +1821,9 @@ function renderQueue(rows){
       if (queueRedrawPending){ const r2 = queueRedrawPending; queueRedrawPending = null; renderQueue(r2); }
     });
 
-    row.append(top, meta, client);
+    row.append(top, meta);
+    if (dec) row.append(dec);
+    row.append(client);
     host.append(row);
   });
 }
@@ -1608,6 +1842,256 @@ $("queueRefresh").addEventListener("click", async () => {
 });
 
 setInterval(() => loadQueue(true), 5000);
+
+/* ---------------- Report page ----------------
+   Threads are the conversation with the server: instructions it sent us, and
+   requests we sent it. Nothing about a job belongs here. An open thread has a
+   compose box; a completed one stays visible and loses it. */
+let thRows = [], thOpenId = null, thFilter = "open", thPoll = null;
+
+async function thLoad(quiet){
+  let rows = [];
+  try { rows = (await (await fetch("/api/threads")).json()).threads || []; }
+  catch { if (!quiet) setStatus("<b>Could not read threads.</b>", "bad"); return; }
+  thRows = rows;
+  thRenderList();
+  if (thOpenId && !rows.some(r => r.id === thOpenId)) thShow(null);
+}
+
+function thVisible(){
+  return thRows.filter(r => thFilter === "all" ? true
+                          : thFilter === "done" ? r.completed : !r.completed);
+}
+
+function thRenderList(){
+  const host = $("thList"), rows = thVisible();
+  $("thEmpty").style.display = rows.length ? "none" : "block";
+  $("thEmpty").textContent = thRows.length
+    ? "Nothing in this filter."
+    : "Nothing from the server yet.";
+  host.innerHTML = "";
+  rows.forEach(r => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ritem" + (r.id === thOpenId ? " on" : "");
+    const t = document.createElement("div");
+    t.className = "rt";
+    const tag = document.createElement("span");
+    tag.className = "rtag " + (r.completed ? "done" : r.kind);
+    tag.textContent = r.completed ? "done"
+      : r.kind === "registration" ? "register"
+      : r.kind === "request" ? "request" : "from server";
+    t.append(tag, document.createTextNode(r.title));
+    if (r.kind === "registration" && r.status){
+      const st = document.createElement("span");
+      st.className = "rstatus " + r.status;
+      st.textContent = r.status;
+      t.append(st);
+    }
+    const pv = document.createElement("div");
+    pv.className = "rp";
+    pv.textContent = r.preview || "(no messages yet)";
+    b.append(t, pv);
+    b.addEventListener("click", () => thShow(r.id));
+    host.append(b);
+  });
+}
+
+async function thShow(id){
+  thOpenId = id;
+  thRenderList();
+  if (!id){
+    $("thPane").style.display = "none";
+    $("thNone").style.display = "block";
+    return;
+  }
+  let t;
+  try { t = await (await fetch("/api/thread/" + id)).json(); }
+  catch { return setStatus("<b>Could not open that thread.</b>", "bad"); }
+  $("thNone").style.display = "none";
+  $("thPane").style.display = "block";
+  $("thTitle").textContent = t.title;
+  const bits = [t.kind === "request" ? "our request" : "from the server"];
+  if (t.channel) bits.push("channel " + t.channel);
+  if (t.sender) bits.push("sender " + t.sender);
+  bits.push(t.messages.length + (t.messages.length === 1 ? " message" : " messages"));
+  if (t.kind === "registration" && t.status) bits.push(t.status);
+  if (t.completed) bits.push("completed");
+  $("thMeta").textContent = bits.join(" \u00b7 ");
+
+  const chat = $("thChat");
+  chat.innerHTML = "";
+  (t.messages || []).forEach(m => {
+    const d = document.createElement("div");
+    d.className = "bub " + m.role;
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = m.role === "server" ? "Server" : m.role === "claude" ? "Claude" : "You";
+    const body = document.createElement("span");
+    body.textContent = m.text;
+    d.append(who, body);
+    chat.append(d);
+  });
+  chat.scrollTop = chat.scrollHeight;
+
+  // Three states for the bottom of the chat pane, and only one shows at a time.
+  // A completed thread keeps its history and loses the box. A registration
+  // still waiting has no box either: all you can do is ask again.
+  const waiting = t.kind === "registration" && t.status === "waiting" && !t.completed;
+  $("thCompose").style.display = (t.completed || waiting) ? "none" : "block";
+  $("thClosed").style.display = t.completed ? "flex" : "none";
+  $("thWait").style.display = waiting ? "flex" : "none";
+  $("thDone").style.display = t.completed ? "none" : "inline-flex";
+  if (t.kind === "registration" && t.status === "approved" && t.assigned_id){
+    $("thMeta").textContent += " \u00b7 our id is " + t.assigned_id;
+  }
+}
+
+async function thSend(){
+  if (!thOpenId) return;
+  const text = $("thText").value.trim();
+  if (!text) return;
+  const {ok, data} = await post("/api/thread/" + thOpenId + "/message",
+                                {role: "user", text});
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+  $("thText").value = "";
+  await thShow(thOpenId);
+  thLoad(true);
+}
+
+$("thSend").addEventListener("click", thSend);
+$("thText").addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter"){ e.preventDefault(); thSend(); }
+});
+
+$("thDone").addEventListener("click", async () => {
+  if (!thOpenId) return;
+  const {ok, data} = await post("/api/thread/" + thOpenId + "/complete", {completed: true});
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+  await thShow(thOpenId); thLoad(true);
+  setStatus("Thread marked <b>complete</b>.", "ok");
+});
+
+$("thReopen").addEventListener("click", async () => {
+  if (!thOpenId) return;
+  await post("/api/thread/" + thOpenId + "/complete", {completed: false});
+  await thShow(thOpenId); thLoad(true);
+  setStatus("Thread <b>reopened</b>.", "ok");
+});
+
+/* The New dialog. Two kinds of thing to start: an ordinary request, which
+   needs a name, or a registration, which needs the server's URL instead and
+   sends this project's name rather than asking for one. */
+function dlgKind(){
+  const el = document.querySelector('#dlgKind input:checked');
+  return el ? el.value : "general";
+}
+
+function dlgSync(){
+  const reg = dlgKind() === "register";
+  $("dlgTitle").textContent = reg ? "Register me" : "New request";
+  $("dlgLab").textContent = reg ? "Server URL" : "Name of request";
+  $("dlgInput").placeholder = reg
+    ? "https://server.example.com/register"
+    : "What are you asking for?";
+  $("dlgInput").type = reg ? "url" : "text";
+  $("dlgErr").textContent = "";
+}
+
+document.querySelectorAll('#dlgKind input').forEach(r =>
+  r.addEventListener("change", () => { dlgSync(); $("dlgInput").focus(); }));
+
+$("thNew").addEventListener("click", () => {
+  document.querySelector('#dlgKind input[value="general"]').checked = true;
+  $("dlgInput").value = "";
+  dlgSync();
+  $("thDlg").showModal();
+  $("dlgInput").focus();
+});
+
+$("dlgCancel").addEventListener("click", () => $("thDlg").close("cancel"));
+
+$("thDlgForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const reg = dlgKind() === "register";
+  const value = $("dlgInput").value.trim();
+  if (!value){
+    $("dlgErr").textContent = reg ? "A URL is required." : "A name is required.";
+    return;
+  }
+  if (reg && !/^https?:\/\//i.test(value)){
+    $("dlgErr").textContent = "The URL must start with http:// or https://";
+    return;
+  }
+  $("dlgOk").disabled = true;
+  const {ok, data} = reg
+    ? await post("/api/register", {url: value})
+    : await post("/api/thread", {kind: "request", title: value});
+  $("dlgOk").disabled = false;
+  if (!ok){
+    $("dlgErr").textContent = data.error || "That failed.";
+    return;
+  }
+  $("thDlg").close("ok");
+  thFilter = "open";
+  document.querySelectorAll("#thFilter .rchip").forEach(c =>
+    c.classList.toggle("on", c.dataset.filter === "open"));
+  await thLoad(true);
+  thShow(data.id);
+  setStatus(reg
+    ? (data.status === "approved"
+        ? "Registered. The server gave us an id."
+        : "Registration sent. <b>Waiting for approval.</b>")
+    : "Request opened. Type what you need in the box.", data.error ? "warn" : "ok");
+});
+
+$("thAgain").addEventListener("click", async () => {
+  if (!thOpenId) return;
+  $("thAgain").disabled = true;
+  const {ok, data} = await post("/api/thread/" + thOpenId + "/retry", {});
+  $("thAgain").disabled = false;
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+  await thShow(thOpenId); thLoad(true);
+  setStatus(data.status === "approved"
+    ? "Approved. The server gave us an id."
+    : "Asked again. <b>Still waiting.</b>", "ok");
+});
+
+document.querySelectorAll("#thFilter .rchip").forEach(c => {
+  c.addEventListener("click", () => {
+    thFilter = c.dataset.filter;
+    document.querySelectorAll("#thFilter .rchip").forEach(x =>
+      x.classList.toggle("on", x === c));
+    thRenderList();
+  });
+});
+
+/* Top-level pages. Workplace is the whole existing tool; the other two are
+   placeholders until there is something to put in them. The choice is
+   remembered, so a reload comes back where you were. */
+const PAGES = ["workplace", "report", "profile"];
+
+function showPage(name){
+  if (!PAGES.includes(name)) name = "workplace";
+  PAGES.forEach(id => {
+    const el = $("page-" + id);
+    if (el) el.classList.toggle("on", id === name);
+  });
+  document.querySelectorAll("#topTabs .toptab").forEach(b => {
+    const on = b.dataset.page === name;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-current", on ? "page" : "false");
+  });
+  remember("pw.page", name);
+  // Only poll the server for threads while the page that shows them is open.
+  clearInterval(thPoll);
+  if (name === "report"){ thLoad(true); thPoll = setInterval(() => thLoad(true), 5000); }
+}
+
+document.querySelectorAll("#topTabs .toptab").forEach(b => {
+  b.addEventListener("click", () => showPage(b.dataset.page));
+});
+showPage(remembered("pw.page") || "workplace");
 
 loadConfig().then(() => loadRecent(true));
 setSource(remembered("pw.source") || "auto", true);

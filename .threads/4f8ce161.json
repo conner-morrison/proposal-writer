@@ -1,0 +1,22 @@
+{
+  "id": "4f8ce161",
+  "kind": "instruction",
+  "title": "report-complete",
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "created": 1790888744.6199257,
+  "updated": 1790888744.619968,
+  "completed": false,
+  "completed_at": null,
+  "status": "",
+  "url": "",
+  "assigned_id": null,
+  "messages": [
+    {
+      "seq": 1,
+      "role": "server",
+      "text": "{\n  \"type\": \"report-complete\",\n  \"threadId\": \"register-1790888683495\"\n}",
+      "ts": 1790888744.619968
+    }
+  ]
+}

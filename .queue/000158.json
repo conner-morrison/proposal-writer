@@ -1,0 +1,32 @@
+{
+  "seq": 158,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790703831.541173,
+  "body": {
+    "type": "alert",
+    "index": 0,
+    "title": "Salesforce Integration Developer (WordPress &amp; E-co...",
+    "budget": "$70.00 - $110.00",
+    "client": {
+      "spent": "$74K spent",
+      "rating": "4.99",
+      "location": "United States",
+      "paymentVerified": true
+    },
+    "skills": [
+      "Salesforce Development Skills",
+      "Salesforce Marketing Cloud",
+      "Salesforce Lightning"
+    ],
+    "source": "upwork",
+    "emailId": "1a0ee43b5a032324",
+    "jobType": "Hourly",
+    "upworkUrl": "https://www.upwork.com/jobs/~022104944773276270653",
+    "receivedAt": "2026-09-29T17:43:28.000Z",
+    "description": "About Us We are a U.S.-based digital agency that designs and builds custom digital experiences for enterprise and mid-market clients. Ma…",
+    "emailSubject": "New job alert: Salesforce Integration Developer (WordPress &amp; E-co..."
+  },
+  "client_name": "",
+  "used": false
+}

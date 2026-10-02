@@ -41,6 +41,14 @@ MSG_SEQ = [0]  # monotonic id so the watcher can poll for anything new
 JOBS_DIR = ROOT / ".jobs"
 PROPOSALS = ROOT / "proposals"   # readable local archive, one markdown file per proposal
 QUEUE_DIR = ROOT / ".queue"      # jobs pulled off the relay, waiting to be written
+THREADS_DIR = ROOT / ".threads"  # the Report page: talking to the server, not about jobs
+IDENTITY_FILE = ROOT / ".identity.json"  # who this project is to the server, once registered
+
+# Report threads. One per instruction the server sent us, or per request we
+# sent it. Deliberately separate from JOBS: nothing about a proposal belongs
+# here, only the conversation around it.
+THREADS = {}
+THREADS_LOCK = threading.Lock()
 
 # History retention. Jobs are kept in .jobs/*.json on this machine, never in the
 # browser, and older ones are purged on a daily boundary anchored to Japan time.
@@ -167,6 +175,140 @@ def detect_country(jd: str):
     raw = re.sub(r"[\U0001F1E6-\U0001F1FF]", "", m.group(1)).strip(" ,.\t")
     raw = raw.split(",")[-1].strip() if "," in raw else raw
     return COUNTRY_LANGUAGE.get(raw.lower(), (None, None))
+
+
+
+def save_thread(t):
+    THREADS_DIR.mkdir(exist_ok=True)
+    (THREADS_DIR / f"{t['id']}.json").write_text(json.dumps(t, indent=2), encoding="utf-8")
+
+
+def load_threads():
+    if not THREADS_DIR.is_dir():
+        return
+    for f in THREADS_DIR.glob("*.json"):
+        try:
+            t = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        THREADS[t["id"]] = t
+
+
+def new_thread(kind, title, channel="", sender="", text="", role="server"):
+    """kind is 'instruction' (the server telling us something) or 'request'
+    (us asking the server for something)."""
+    t = {
+        "id": uuid.uuid4().hex[:8],
+        "kind": kind if kind in ("request", "registration") else "instruction",
+        "title": (title or "").strip()[:120] or "Untitled",
+        "channel": channel,
+        "sender": sender,
+        "created": time.time(),
+        "updated": time.time(),
+        "completed": False,
+        "completed_at": None,
+        # registration threads only: waiting until the server hands back an id
+        "status": "waiting" if kind == "registration" else "",
+        "url": "",
+        "assigned_id": None,
+        "messages": [],
+    }
+    with THREADS_LOCK:
+        THREADS[t["id"]] = t
+    if text.strip():
+        thread_say(t, role, text)
+    else:
+        save_thread(t)
+    return t
+
+
+def thread_say(t, role, text):
+    role = role if role in ("server", "claude", "user") else "server"
+    with THREADS_LOCK:
+        msg = {"seq": len(t["messages"]) + 1, "role": role,
+               "text": str(text), "ts": time.time()}
+        t["messages"].append(msg)
+        t["updated"] = msg["ts"]
+        save_thread(t)
+    return msg
+
+
+def thread_row(t):
+    """What the sidebar needs, and nothing more."""
+    last = t["messages"][-1] if t["messages"] else None
+    return {"id": t["id"], "kind": t["kind"], "title": t["title"],
+            "status": t.get("status", ""), "assigned_id": t.get("assigned_id"),
+            "channel": t.get("channel", ""), "completed": bool(t["completed"]),
+            "created": t["created"], "updated": t["updated"],
+            "count": len(t["messages"]),
+            "preview": (last["text"][:90] if last else ""),
+            "last_role": (last["role"] if last else "")}
+
+
+
+# ---- identity -----------------------------------------------------------
+# Registration is a handshake: we send the server this project's name, the
+# server approves and hands back an id. After that the id is what we send, and
+# the server maps it back to the name on its side.
+
+def project_name():
+    return read_env().get("PROJECT_NAME") or "Proposal Writer"
+
+
+def load_identity():
+    base = {"name": project_name(), "id": None, "url": None,
+            "registered_at": None, "thread": None}
+    if IDENTITY_FILE.is_file():
+        try:
+            base.update(json.loads(IDENTITY_FILE.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    base["name"] = base.get("name") or project_name()
+    return base
+
+
+def save_identity(ident):
+    IDENTITY_FILE.write_text(json.dumps(ident, indent=2), encoding="utf-8")
+    return ident
+
+
+def send_registration(url, thread):
+    """POST this project's name to the server the user named. A synchronous id
+    in the reply is accepted immediately; otherwise the thread waits for the
+    server to approve out of band."""
+    body = json.dumps({
+        "type": "registration_request",
+        "name": project_name(),
+        "thread": thread["id"],
+        "callback": f"http://localhost:{PORT}/api/registration/callback",
+    }).encode("utf-8")
+    req = urllib.request.Request(url, data=body, method="POST",
+                                 headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = r.read().decode("utf-8", "replace")
+    try:
+        return json.loads(raw)
+    except Exception:
+        return {"raw": raw[:500]}
+
+
+def approve_registration(thread, assigned_id, note=""):
+    ident = load_identity()
+    ident["id"] = str(assigned_id)
+    ident["registered_at"] = time.time()
+    ident["thread"] = thread["id"] if thread else ident.get("thread")
+    save_identity(ident)
+    if thread:
+        with THREADS_LOCK:
+            thread["status"] = "approved"
+            thread["assigned_id"] = str(assigned_id)
+            thread["updated"] = time.time()
+            save_thread(thread)
+        thread_say(thread, "server",
+                   f"Approved. Your id is {assigned_id}."
+                   + (f"\n{note}" if note else ""))
+    print(f"  registered as id {assigned_id}", flush=True)
+    return ident
 
 
 def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
@@ -478,6 +620,69 @@ def queue_save(item):
 # test pings) are still dropped, but named in the log.
 NOISE_TYPES = {"test", "ping", "heartbeat"}
 
+# A second producer posts jobs under capitalised, spaced keys and calls them
+# "job-decision": the same job, plus a bid/skip verdict and the reasoning for
+# it. Mapped onto the ordinary shape so those rows look and behave like every
+# other one in the queue.
+DECISION_KEYS = {
+    "Job title": "title",
+    "Job link": "upworkUrl",
+    "Job description": "description",
+    "projectId": "vollnaProjectId",
+    "decision": "aiQualification",
+    "reason": "aiReason",
+}
+
+
+def _as_text(v):
+    """Queue bodies come from more than one producer and the same field is not
+    always the same type. One bad row used to take the whole queue down."""
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, (list, tuple)):
+        return "\n\n".join(str(x) for x in v)
+    return str(v)
+
+
+def _client_name(v):
+    """The search feed sends the client as {"name": "Michelle", "mentions": 1}
+    on some jobs, a bare string on others, and nothing at all on the rest."""
+    if isinstance(v, dict):
+        return str(v.get("name") or "").strip()
+    return str(v or "").strip()
+
+
+# The saved Vollna search that produces these calls itself
+# "general-vollna-search". In the queue it is just "search".
+SEARCH_SOURCES = {"job-decision", "general-vollna-search", "vollna-search"}
+
+
+def _normalise_job_body(body):
+    if not isinstance(body, dict):
+        return body
+    src = str(body.get("source", "")).lower()
+    if str(body.get("type", "")).lower() != "job-decision" and src not in SEARCH_SOURCES:
+        return body
+    out = dict(body)
+    for src, dst in DECISION_KEYS.items():
+        if src in out and not out.get(dst):
+            v = out[src]
+            # that producer sends the description as a list of paragraphs on
+            # some jobs and a plain string on others
+            if isinstance(v, (list, tuple)):
+                v = "\n\n".join(str(x) for x in v)
+            out[dst] = v
+    out["type"] = "job"
+    out["source"] = "search"
+    name = _client_name(out.get("clientName"))
+    if name:
+        out["clientName"] = name
+        client = out.get("client")
+        out["client"] = {**client, "name": name} if isinstance(client, dict) else {"name": name}
+    return out
+
 
 def _looks_like_a_job(body):
     if not isinstance(body, dict):
@@ -506,6 +711,7 @@ def relay_pull(wait=0.0):
     kept = []
     for msg in payload.get("messages", []):
         body = msg.get("body") if isinstance(msg.get("body"), dict) else {}
+        body = _normalise_job_body(body)
         if msg.get("channel") == "github":
             # Replies land here from whichever worker answers the search.
             # Our own github_refs posts come back too; those are not replies.
@@ -518,15 +724,26 @@ def relay_pull(wait=0.0):
             if not existing.is_file():        # never clobber a typed-in client name
                 item = {"seq": msg["seq"], "channel": msg["channel"],
                         "sender": msg.get("sender", ""), "ts": msg.get("ts", time.time()),
-                        "body": body, "client_name": "", "used": False}
+                        "body": body,
+                        "client_name": _client_name(body.get("clientName")),
+                        "used": False}
                 queue_save(item)
                 kept.append(item)
                 title = body.get("title") or body.get("jobTitle") or ""
                 print(f"  relay job seq {msg['seq']} arrived from {msg.get('sender','?')}: "
                       f"type={body.get('type','?')} title={title[:46]!r}", flush=True)
         else:
-            print(f"  relay skipped seq {msg['seq']} from {msg.get('sender','?')}: "
-                  f"type={body.get('type','?')} keys={list(body)[:6]}", flush=True)
+            # Not a job, not a github reply: the server is talking to us rather
+            # than sending work. That is what the Report page is for, so keep
+            # it as a thread instead of dropping it on the floor.
+            title = (body.get("title") or body.get("subject")
+                     or body.get("instruction") or body.get("type") or "Instruction")
+            text = (body.get("text") or body.get("message") or body.get("body")
+                    or body.get("instruction") or json.dumps(body, indent=2))
+            t = new_thread("instruction", str(title), channel=msg.get("channel", ""),
+                           sender=msg.get("sender", ""), text=str(text), role="server")
+            print(f"  relay instruction seq {msg['seq']} -> thread {t['id']}: "
+                  f"{t['title'][:46]!r}", flush=True)
         relay_call("POST", "/ack", {"channel": msg["channel"], "seq": msg["seq"]})
     # New relay jobs are deliberately not announced on Telegram. The queue in
     # the UI already shows them, and the phone message was noise. Disabled on
@@ -556,9 +773,15 @@ def queue_items():
             "location": client.get("location", ""),
             "verified": client.get("paymentVerified"),
             "qualification": b.get("aiQualification", ""),
-            "has_jd": bool((b.get("description") or "").strip()),
-            "client_name": item.get("client_name", ""),
+            "reason": b.get("aiReason", ""),
+            # which alert this row came in on, so the queue says where its
+            # jobs are coming from rather than presenting one undifferentiated list
+            "source": b.get("source", "") or b.get("filter", ""),
+            "sender": item.get("sender", ""),
+            "has_jd": bool(_as_text(b.get("description")).strip()),
+            "client_name": _client_name(item.get("client_name")) or _client_name(client.get("name")),
             "used": bool(item.get("used")),
+            "written_at": item.get("written_at"),
             "job_id": item.get("job_id", ""),
             "job_status": (JOBS.get(item.get("job_id", ""), {}) or {}).get("status", ""),
             "has_proposal": bool((JOBS.get(item.get("job_id", ""), {}) or {}).get("proposal")),
@@ -567,12 +790,14 @@ def queue_items():
     return out
 
 
-def queue_drop_for_job(job_id):
-    """Take a finished job's row out of the queue.
+def queue_mark_written(job_id):
+    """Mark the queue row as written, and keep it.
 
-    The row exists to say "this still needs writing". Once a proposal is
-    stored the row has no work left in it, and leaving it there means the
-    list stops being a list of what to do.
+    It used to be deleted the moment a proposal landed, on the grounds that a
+    finished row has no work left in it. That also threw away the only copy of
+    the original relay post, so the job could never be run again from the
+    queue. The row now stays and carries the job id, which is what lets the UI
+    offer it a second time.
     """
     if not job_id or not QUEUE_DIR.is_dir():
         return None
@@ -582,7 +807,9 @@ def queue_drop_for_job(job_id):
         except (OSError, ValueError):
             continue
         if item.get("job_id") == job_id:
-            f.unlink()
+            item["used"] = True
+            item["written_at"] = time.time()
+            queue_save(item)
             return item.get("seq")
     return None
 
@@ -857,6 +1084,23 @@ class Handler(BaseHTTPRequestHandler):
                     "model": MODEL,
                 },
             )
+        if path == "/api/identity":
+            return self._send(200, load_identity())
+
+        if path == "/api/threads":
+            with THREADS_LOCK:
+                rows = sorted(THREADS.values(),
+                              key=lambda t: (t["completed"], -t["updated"]))
+            return self._send(200, {"threads": [thread_row(t) for t in rows]})
+
+        m = re.fullmatch(r"/api/thread/([0-9a-f]{8})", path)
+        if m:
+            with THREADS_LOCK:
+                t = THREADS.get(m.group(1))
+            if not t:
+                return self._send(404, {"error": "no such thread"})
+            return self._send(200, t)
+
         if path == "/api/queue":
             return self._send(200, {"queue": queue_items()})
 
@@ -960,9 +1204,10 @@ class Handler(BaseHTTPRequestHandler):
                             "status": job["status"]})
                     job["proposal"] = text
                     job["status"] = "done"
-                    dropped = queue_drop_for_job(job["id"])
-                    if dropped is not None:
-                        print(f"  queue seq {dropped} written, row removed", flush=True)
+                    written = queue_mark_written(job["id"])
+                    if written is not None:
+                        print(f"  queue seq {written} written, row kept for a rerun",
+                              flush=True)
                     # One Telegram alarm per job, no matter how many /result calls
                     # arrive (from a peer session, from a rewrite after answers).
                     if not job.get("notified_done"):
@@ -1031,6 +1276,120 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, {"ok": True, "note": "was not waiting"})
                 clear_github_gate(job, "released by hand")
             return self._send(200, {"ok": True, "released": True})
+
+        if path == "/api/register":
+            url = str(data.get("url") or "").strip()
+            if not url.lower().startswith(("http://", "https://")):
+                return self._send(400, {"error": "a http or https URL is required"})
+            t = new_thread("registration", f"Register with {url}",
+                           channel="registration", sender="", text="")
+            with THREADS_LOCK:
+                t["url"] = url
+                save_thread(t)
+            ident = load_identity()
+            ident["url"] = url
+            save_identity(ident)
+            thread_say(t, "claude",
+                       f"Registration request sent to {url}\nname: {project_name()}")
+            try:
+                reply = send_registration(url, t)
+            except Exception as exc:
+                thread_say(t, "server", f"Could not reach the server: {exc}")
+                return self._send(200, {"ok": True, "id": t["id"], "status": "waiting",
+                                        "error": str(exc)})
+            got = reply.get("id") or reply.get("assigned_id")
+            if got:
+                approve_registration(t, got, str(reply.get("note") or ""))
+            else:
+                thread_say(t, "server",
+                           "Received, waiting for approval.\n" + json.dumps(reply)[:400])
+            return self._send(200, {"ok": True, "id": t["id"],
+                                    "status": t.get("status"), "reply": reply})
+
+        m = re.fullmatch(r"/api/thread/([0-9a-f]{8})/retry", path)
+        if m:
+            with THREADS_LOCK:
+                t = THREADS.get(m.group(1))
+            if not t:
+                return self._send(404, {"error": "no such thread"})
+            if t["kind"] != "registration":
+                return self._send(400, {"error": "only a registration can be retried"})
+            url = t.get("url") or load_identity().get("url") or ""
+            if not url:
+                return self._send(400, {"error": "this registration has no URL"})
+            thread_say(t, "claude", f"Asking again: {url}")
+            try:
+                reply = send_registration(url, t)
+            except Exception as exc:
+                thread_say(t, "server", f"Could not reach the server: {exc}")
+                return self._send(200, {"ok": True, "status": "waiting", "error": str(exc)})
+            got = reply.get("id") or reply.get("assigned_id")
+            if got:
+                approve_registration(t, got, str(reply.get("note") or ""))
+            else:
+                thread_say(t, "server",
+                           "Still waiting for approval.\n" + json.dumps(reply)[:400])
+            return self._send(200, {"ok": True, "status": t.get("status"), "reply": reply})
+
+        if path == "/api/registration/callback":
+            # The server calls this when it approves, out of band.
+            got = data.get("id") or data.get("assigned_id")
+            if not got:
+                return self._send(400, {"error": "id is required"})
+            tid = str(data.get("thread") or "")
+            with THREADS_LOCK:
+                t = THREADS.get(tid) or next(
+                    (x for x in THREADS.values()
+                     if x["kind"] == "registration" and x.get("status") == "waiting"), None)
+            approve_registration(t, got, str(data.get("note") or ""))
+            return self._send(200, {"ok": True, "id": str(got)})
+
+        if path == "/api/thread":
+            title = str(data.get("title") or "").strip()
+            if not title:
+                return self._send(400, {"error": "title is required"})
+            t = new_thread(str(data.get("kind") or "request"), title,
+                           channel=str(data.get("channel") or ""),
+                           sender=str(data.get("sender") or ""),
+                           text=str(data.get("text") or ""),
+                           role=str(data.get("role") or "claude"))
+            return self._send(200, {"ok": True, "id": t["id"], "thread": t})
+
+        m = re.fullmatch(r"/api/thread/([0-9a-f]{8})/message", path)
+        if m:
+            with THREADS_LOCK:
+                t = THREADS.get(m.group(1))
+            if not t:
+                return self._send(404, {"error": "no such thread"})
+            if t["completed"]:
+                return self._send(409, {"error": "this thread is completed"})
+            text = str(data.get("text") or "").strip()
+            if not text:
+                return self._send(400, {"error": "empty message"})
+            msg = thread_say(t, str(data.get("role") or "user"), text)
+            return self._send(200, {"ok": True, "message": msg})
+
+        m = re.fullmatch(r"/api/thread/([0-9a-f]{8})/complete", path)
+        if m:
+            with THREADS_LOCK:
+                t = THREADS.get(m.group(1))
+                if not t:
+                    return self._send(404, {"error": "no such thread"})
+                done = data.get("completed")
+                t["completed"] = True if done is None else bool(done)
+                t["completed_at"] = time.time() if t["completed"] else None
+                t["updated"] = time.time()
+                save_thread(t)
+            return self._send(200, {"ok": True, "completed": t["completed"]})
+
+        m = re.fullmatch(r"/api/thread/([0-9a-f]{8})/delete", path)
+        if m:
+            with THREADS_LOCK:
+                t = THREADS.pop(m.group(1), None)
+            f = THREADS_DIR / f"{m.group(1)}.json"
+            if f.is_file():
+                f.unlink()
+            return self._send(200, {"ok": True, "deleted": bool(t)})
 
         if path == "/api/relay/publish":
             channel = str(data.get("channel") or "").strip()
@@ -1400,6 +1759,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     load_jobs()
+    load_threads()
     purge_old_jobs()          # catch up if the server was down at the boundary
     threading.Thread(target=purge_loop, daemon=True).start()
     threading.Thread(target=pull_loop, daemon=True).start()

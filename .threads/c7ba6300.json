@@ -1,0 +1,22 @@
+{
+  "id": "c7ba6300",
+  "kind": "instruction",
+  "title": "probe",
+  "channel": "jobs",
+  "sender": "w-56bd725cbcd05de7243460abbd797240",
+  "created": 1790899665.9307191,
+  "updated": 1790899665.9307492,
+  "completed": false,
+  "completed_at": null,
+  "status": "",
+  "url": "",
+  "assigned_id": null,
+  "messages": [
+    {
+      "seq": 1,
+      "role": "server",
+      "text": "channel check",
+      "ts": 1790899665.9307492
+    }
+  ]
+}

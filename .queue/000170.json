@@ -1,0 +1,32 @@
+{
+  "seq": 170,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790776130.9294267,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Payment Operations Analyst",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 5.00 of 81 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "24/07/2012",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0f28ed412e75bd",
+    "aiReason": "Matches data analytics, SQL, dashboard/ETL skills; client reputable; no scam red flags.",
+    "published": "Sep 30, 2026 1:41 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105290554392118403",
+    "receivedAt": "2026-09-30T13:44:01.000Z",
+    "description": "About the Role\nWe are seeking a Payment Operations Analyst with strong technical and analytical capabilities to drive operational excellence across our Payments team. The ideal candidate will have hands-on experience with payment flows and system integrations, coupled with the ability to troubleshoot issues, extract insights from data, and build compelling reports that inform business decisions, all while thriving in a fast-moving environment.\nKey Responsibilities\n• Support daily operations of payment products, ensuring smooth functionality and optimal performance.\n• Investigate and resolve payment-related issues across gateways, acquirers, and payment methods.\n• Analyze payment data to identify trends, anomalies, and improvement opportunities (e.g., declines, approval rates).\n• Build and maintain medium to advanced reporting dashboards and perform ad-hoc analysis to track payment performance metrics and KPIs.\n• Collaborate with cross-functional teams (Product, IT, Finance, Disputes and Fraud) to resolve escalations, identify root causes, and improve processes.\n• Work with external partners (PSPs, acquirers and alternative payment providers) to ensure seamless operations and efficient issue resolution.\n• Support and monitor payment integrations, ensuring correct implementation and ongoing stability.\n• Assist in managing payment flows, including authorization, capture, refunds, VAMP and 3DS authentication.\n• Contribute to process improvements and automation initiatives to enhance efficiency.\nRequired Skills & Experience\n• At least 2+ years of hands-on experience in payment flows and payment operations (mandatory)\n• Bachelor's degree in Industrial Engineering, Business Administration, Economics, or a related field.\n• Proficiency in SQL — ability to write complex queries for data extraction, transformation, and validation across large datasets.\n• Strong Excel skills — including pivot tables, VLOOKUP and advanced formula work.\n• Hands-on experience with BI tools such as BigQuery, Preset — querying, aggregating, and analyzing payment data at scale.\n• Experience building dashboards and reports — translating raw data into actionable business insights and visualizations.\n• Familiarity with payment gateways, APIs, and integration flows.\n• Medium to advanced reporting experience — ability to design metrics, build automated reports, and create self-service analytics for stakeholders.\n• Strong analytical and problem-solving skills with high attention to detail.\n• Ability to work independently and manage multiple tasks in a dynamic environment.\n• Excellent verbal and written communication skills.\nNice-to-Have\n• Experience with payment compliance and fraud monitoring frameworks.\n• Familiarity with Stripe, Adyen, or similar payment processor ecosystems.\n• Background in dispute management, fraud or chargeback operations.\n• Experience with payment webhooks and real-time event processing.",
+    "emailSubject": "New Job: Payment Operations Analyst",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75310526"
+  },
+  "client_name": "",
+  "used": false
+}

@@ -1,0 +1,28 @@
+{
+  "seq": 227,
+  "channel": "jobs",
+  "sender": "w-56bd725cbcd05de7243460abbd797240",
+  "ts": 1790901250.4447525,
+  "body": {
+    "type": "job",
+    "reason": "spent $218403 (>= $100K) but pays $8.24/hr (< $20)",
+    "Job link": "https://www.upwork.com/jobs/~022105029123076238048",
+    "decision": "manual check",
+    "Job title": "Tableau Expert Needed for Smartsheet",
+    "projectId": "75306800",
+    "clientName": "Michelle",
+    "Job description": "Responsibilities\nDesign and deliver Tableau training sessions for internal team members.\nIntegrate Tableau with Smartsheet using available connectors, APIs, or Data Shuttle.\nBuild interactive dashboards and executive reports.\nConfigure automated data refresh and reporting workflows.\nDevelop reporting standards and dashboard best practices.\nTrain non-technical users on Tableau reporting and analytics.\nCreate documentation, user guides, and training materials.\nProvide ongoing support and answer questions during implementation.\n \nRequired Qualifications\nStrong experience with Tableau dashboard development.\nExperience working with Smartsheet and Tableau integrations.\nKnowledge of APIs, Data Shuttle, connectors, or similar integration tools.\nUnderstanding of data modeling, <span class='keyword-highlighted'>ETL</span> processes, and report automation.\nExperience creating executive dashboards and KPI reporting.\nExcellent communication and presentation skills.\nPrevious experience delivering technical training is preferred.\nAbility to work independently in a remote environment.\n \nPreferred Skills\nTableau Desktop and Tableau Cloud&#x2F;Server experience.\nSmartsheet Control Center or advanced workflow experience.\nSQL knowledge is a plus.\nExperience with construction, operations, or project management reporting is a plus.\n \nWhy Join Smart Build?\nFlexible remote work schedule.\nOpportunity to help shape company-wide reporting and analytics.\nCollaborative and growing team.\nMake a direct impact on business intelligence and operational reporting.",
+    "title": "Tableau Expert Needed for Smartsheet",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105029123076238048",
+    "description": "Responsibilities\nDesign and deliver Tableau training sessions for internal team members.\nIntegrate Tableau with Smartsheet using available connectors, APIs, or Data Shuttle.\nBuild interactive dashboards and executive reports.\nConfigure automated data refresh and reporting workflows.\nDevelop reporting standards and dashboard best practices.\nTrain non-technical users on Tableau reporting and analytics.\nCreate documentation, user guides, and training materials.\nProvide ongoing support and answer questions during implementation.\n \nRequired Qualifications\nStrong experience with Tableau dashboard development.\nExperience working with Smartsheet and Tableau integrations.\nKnowledge of APIs, Data Shuttle, connectors, or similar integration tools.\nUnderstanding of data modeling, <span class='keyword-highlighted'>ETL</span> processes, and report automation.\nExperience creating executive dashboards and KPI reporting.\nExcellent communication and presentation skills.\nPrevious experience delivering technical training is preferred.\nAbility to work independently in a remote environment.\n \nPreferred Skills\nTableau Desktop and Tableau Cloud&#x2F;Server experience.\nSmartsheet Control Center or advanced workflow experience.\nSQL knowledge is a plus.\nExperience with construction, operations, or project management reporting is a plus.\n \nWhy Join Smart Build?\nFlexible remote work schedule.\nOpportunity to help shape company-wide reporting and analytics.\nCollaborative and growing team.\nMake a direct impact on business intelligence and operational reporting.",
+    "vollnaProjectId": "75306800",
+    "aiQualification": "manual check",
+    "aiReason": "spent $218403 (>= $100K) but pays $8.24/hr (< $20)",
+    "source": "search",
+    "client": {
+      "name": "Michelle"
+    }
+  },
+  "client_name": "Michelle",
+  "used": false
+}

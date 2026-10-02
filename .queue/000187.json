@@ -1,0 +1,32 @@
+{
+  "seq": 187,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790882930.5648274,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Vapi + Twilio AI Voice Agent Developer for Inbound & Outbound Calls",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.98 of 17 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "12/12/2018",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0f8f096ccd4f3f",
+    "aiReason": "Client is legitimate; job needs AI/LLM and API integration which overlap with my ML/AI skills; despite focus on voice telephony, overlap is enough to qualify.",
+    "published": "Oct 1, 2026 7:27 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105740148000778649",
+    "receivedAt": "2026-10-01T19:28:31.000Z",
+    "description": "We are looking for an experienced Vapi + Twilio AI Voice Agent developer to help us design and build a working business voice-agent system.\nThe initial project will be a pilot implementation, but we want the architecture and setup to be suitable for future business use. The agent should support both inbound and outbound calling.\nPossible capabilities include:\n- Answer incoming calls and provide information about the company\n- Answer common customer questions\n- Qualify potential leads\n- Make outbound calls\n- Transfer calls to a human representative when necessary\n- Schedule appointments\n- Send SMS or email notifications\n- Integrate with CRM systems, calendars, webhooks, APIs, and automation platforms\nWHAT WE NEED FROM YOU\nIn addition to building the voice agent, we would like your professional recommendation regarding the proper technical setup.\nPlease advise us on:\n- Whether the business should create and own its own Vapi and Twilio accounts\n- Whether separate accounts or subaccounts should be used when managing multiple business clients\n- What phone-number setup you recommend for inbound and outbound calling\n- Whether an existing business phone number can be used or whether a new number should be purchased\n- What credentials, API keys, permissions, or account access you normally require from a client\n- What company information, FAQs, scripts, documents, or knowledge-base material you need before development begins\n- How you normally connect Vapi, Twilio, LLMs, CRM systems, calendars, SMS, email, APIs, and automation platforms\n- What should be handed over to the client after project completion\n- What ongoing maintenance or support is normally required\n- What recurring platform, telephone, AI, or automation costs the client should expect\nDELIVERABLES\nWe expect the project to include:\n1. A working Vapi/Twilio AI voice-agent implementation\n2. Inbound and outbound calling configuration\n3. Basic testing and troubleshooting\n4. Recommended account and phone-number architecture\n5. A practical checklist showing what information, accounts, credentials, and access a new client must provide before development begins\n6. Documentation explaining the main integrations and setup\n7. Explanation of expected ongoing operating costs and maintenance requirements\nWHEN APPLYING\nPlease include the following in your proposal:\n1. Examples of Vapi/Twilio voice agents you have actually built\n2. Your experience with both inbound and outbound AI calling systems\n3. Your preferred technology stack\n4. A brief description of what you normally request from a new client before beginning a voice-agent project\n5. Your proposed fixed price or estimated price range and what is included\n6. Your estimated delivery time\n7. Any ongoing monthly maintenance or support you normally recommend\nThe project budget is currently open because we want to compare different technical approaches, scopes, and pricing structures.\nPlease focus your proposal specifically on Vapi/Twilio voice-agent development rather than general AI, chatbot, or machine-learning services.",
+    "emailSubject": "New Job: Vapi + Twilio AI Voice Agent Developer for Inbound & Outbound Calls",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75317990"
+  },
+  "client_name": "",
+  "used": false
+}

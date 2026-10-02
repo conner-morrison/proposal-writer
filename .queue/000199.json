@@ -1,0 +1,32 @@
+{
+  "seq": 199,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790892829.645671,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Tableau (Part-Time) - BI Developer, Data Analyst, or Analytics Manager",
+    "budget": "Hourly Rate: 50 - 100 USD",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.96 of 54 reviews",
+      "location": "🇨🇦 Canada",
+      "registered": "27/06/2025",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0f987d5f04478f",
+    "aiReason": "Matches Tableau/BI skills and positioning; detailed real brief, no red flags.",
+    "published": "Oct 1, 2026 10:11 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105781435295457455",
+    "receivedAt": "2026-10-01T22:13:43.000Z",
+    "description": "We're looking into the business intelligence and analytics space and want to understand in detail how analysts and BI teams actually build, govern and deliver dashboards in Tableau.\nWhat you'll do (about 10 hrs/week)\nShowing us your real workflows in Tableau: how you connect to and model a data source (joins, relationships, extracts vs live), build a dashboard from a blank canvas through to a polished interactive layout, write and debug calculated fields, LOD expressions and table calculations, tune a slow workbook, and publish, schedule and permission content on Tableau Server or Cloud - and answering questions along the way: why this step, what's the shortcut, where do people go wrong?\nIf you use Tableau regularly and can talk through your process clearly, you're exactly who we're looking for. No prep needed, just your day-to-day expertise.\nWho you are - any of these backgrounds fits\n- BI Developer / Tableau Developer - you build and maintain the dashboards a business runs on: data modeling, calculations, performance tuning and publishing to Server or Cloud.\n- Data Analyst / Analytics Manager - you live in Tableau answering business questions: exploratory analysis, ad-hoc views, recurring reporting and presenting findings to stakeholders.\n- Tableau Administrator / Analytics Engineer - you own the platform side: sites and projects, permissions and row-level security, extract refresh schedules, published data sources and governance.\nMust-have: 5+ years of hands-on, near-daily use of Tableau Desktop (tell us whether you also work in Tableau Server, Cloud or Prep); fluency with data source modeling, calculated fields, LOD expressions and table calculations, parameters and actions, dashboard design and performance optimization; able to articulate why you do what you do, not just click through it.\nNice-to-have: Tableau Prep or Tableau Public work; a Tableau certification (Desktop Specialist, Certified Data Analyst, Server Certified Associate); experience with other BI tools (Power BI, Looker, Qlik) for comparison; SQL and data warehouse experience (Snowflake, BigQuery, Redshift).",
+    "emailSubject": "New Job: Tableau (Part-Time) - BI Developer, Data Analyst, or Analytics Manager",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75318650"
+  },
+  "client_name": "",
+  "used": false
+}

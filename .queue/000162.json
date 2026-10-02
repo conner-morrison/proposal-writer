@@ -1,0 +1,32 @@
+{
+  "seq": 162,
+  "channel": "jobs",
+  "sender": "zachary-upwork-vollna-alert",
+  "ts": 1790714033.0491936,
+  "body": {
+    "type": "job",
+    "index": 0,
+    "title": "Looker Studio Expert – Real-Time Multi-Location Management Dashboard",
+    "budget": "not specified",
+    "client": {
+      "rank": "Excellent",
+      "reviews": "Rating: 4.77 of 213 reviews",
+      "location": "🇺🇸 United States",
+      "registered": "14/02/2011",
+      "paymentVerified": true
+    },
+    "filter": "Data Engineering & Analytics Jobs",
+    "source": "vollna",
+    "emailId": "1a0eedcfbbb1137c",
+    "aiReason": "The role requires Looker Studio dashboard expertise, data integration, and visualization—core skills match. The description is detailed, specific, and appears genuine, with no red‑flag language.",
+    "published": "Sep 29, 2026 8:28 PM",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105031619756347017",
+    "receivedAt": "2026-09-29T20:30:54.000Z",
+    "description": "We are looking for an experienced Looker Studio Dashboard Developer / Business Intelligence Specialist to build a comprehensive management dashboard for a multi-location business.\nThe goal is to centralize data from multiple sources into one clear, dynamic, and easy-to-use dashboard. Our managers should be able to monitor the performance of each store individually, compare locations, and review company-wide results with data updated in real or near-real time.\nProject Scope\nYou will design and build a complete management dashboard that may include:\n- Incoming and outgoing calls\n- Call performance and conversion metrics\n- Customer check-ins\n- Appointments booked, completed, canceled, and pending\n- Sales and operational KPIs\n- Store rankings and performance comparisons\n- Individual store, regional, and company-wide views\n- Daily, weekly, monthly, and custom date-range reporting\n- Performance trends and period-over-period comparisons\n- Filters by store, manager, employee, date, and other relevant criteria\n- Automated data refreshes\n- Alerts or visual indicators for underperforming locations or metrics\nThe final dashboard must be visually clear, fast, reliable, and practical for daily management decisions.\nResponsibilities\n- Review our current data sources and recommend the best integration structure.\n- Connect Looker Studio with Google Sheets, APIs, and other relevant platforms.\n- Build automated data pipelines where needed.\n- Clean, organize, and standardize information from different sources.\n- Create calculated fields, KPIs, scorecards, charts, rankings, and interactive filters.\n- Develop store-level and company-wide dashboard views.\n- Implement role-appropriate access when different managers need different views.\n- Optimize dashboard performance and data-refresh reliability.\n- Validate calculations and troubleshoot discrepancies between source systems and reports.\n- Document the dashboard structure, data connections, formulas, and refresh process.\n- Train our management team on how to use and maintain the dashboard.\nRequired Qualifications\n- Proven experience building advanced dashboards in Google Looker Studio.\n- Strong experience connecting Looker Studio to Google Sheets.\n- Experience integrating data through APIs.\n- Ability to combine and standardize data from multiple platforms.\n- Strong knowledge of calculated fields, data blending, filters, parameters, and interactive reports.\n- Understanding of business, sales, call-center, and operational KPIs.\n- Ability to transform management needs into practical dashboard views.\n- Strong attention to data accuracy, usability, and visual organization.\n- Ability to work independently and communicate progress clearly.\n- Portfolio or examples of similar dashboards.\nPreferred Qualifications\n- Experience with multi-location or retail businesses.\n- Experience reporting on calls, appointments, check-ins, sales, rankings, and conversion rates.\n- Knowledge of BigQuery, SQL, Google Apps Script, or third-party Looker Studio connectors.\n- Experience creating secure dashboards with store- or manager-specific access.\n- Ability to recommend a scalable data architecture instead of relying exclusively on spreadsheet",
+    "emailSubject": "New Job: Looker Studio Expert – Real-Time Multi-Location Management Dashboard",
+    "aiQualification": "Qualified",
+    "vollnaProjectId": "75306913"
+  },
+  "client_name": "",
+  "used": false
+}

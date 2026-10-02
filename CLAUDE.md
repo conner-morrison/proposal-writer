@@ -115,6 +115,20 @@ A job carries a `client` name from the UI when the user supplies one; use it in 
   to lead with, rate and availability, tone and positioning calls. Anything where you had to
   guess about *your own side* rather than about the client's.
 
+## Check the description is whole, before anything else
+
+**A job description that ends mid-sentence is blocking.** Say so in chat and ask for the full text
+before writing. Clients plant application instructions in the part people skim, most often a
+required word at the top of the proposal, and missing one is an instant rejection however good the
+letter is. A partial description therefore makes the whole write worthless rather than merely
+weaker, and a note in the questions panel is not enough because it is read after the draft.
+
+Fetching the Upwork link does not rescue it: Upwork answers a direct request with HTTP 403. The
+fix is the user pasting the post.
+
+**A planted instruction outranks the shape any guide prescribes.** If the post demands a specific
+first word, that word goes first, ahead of the greeting or the opening line the guide asks for.
+
 ## The order of work on one job
 
 Pressing **Write proposal** starts this sequence. It is the same in Auto and Manual mode, and

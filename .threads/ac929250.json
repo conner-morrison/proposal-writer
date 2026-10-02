@@ -1,0 +1,22 @@
+{
+  "id": "ac929250",
+  "kind": "instruction",
+  "title": "Instruction",
+  "channel": "jobs",
+  "sender": "w-56bd725cbcd05de7243460abbd797240",
+  "created": 1790912245.5333807,
+  "updated": 1790912245.533403,
+  "completed": false,
+  "completed_at": null,
+  "status": "",
+  "url": "",
+  "assigned_id": null,
+  "messages": [
+    {
+      "seq": 1,
+      "role": "server",
+      "text": "{}",
+      "ts": 1790912245.533403
+    }
+  ]
+}

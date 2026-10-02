@@ -1,0 +1,24 @@
+{
+  "seq": 224,
+  "channel": "jobs",
+  "sender": "w-56bd725cbcd05de7243460abbd797240",
+  "ts": 1790899780.708238,
+  "body": {
+    "type": "job",
+    "reason": "new client: Vollna shows no spend and no hourly rate",
+    "Job link": "https://www.upwork.com/jobs/~022105583454019598441",
+    "decision": "bid",
+    "Job title": "Palantir Foundry / AIP Developer - Freelance Project (India-based, Full-Time Freelancers Only)",
+    "projectId": "75314983",
+    "Job description": "We're a forward-deployed AI engineering firm building custom AI solutions for regulated industries (Life Sciences, Healthcare, Financial Services), and we're looking for an experienced Palantir Foundry/AIP developer for a client project \u2014 hands-on work across Ontology design, data pipelines, and AIP-powered workflows, with the exact scope confirmed once we've found the right fit. This role is strictly for full-time freelancers or independent consultants: please do not apply if you're currently employed full-time elsewhere, as our client requires contributors who aren't moonlighting on the side of another job. Please share specific examples of production Foundry/AIP work you've shipped, not just platform familiarity.",
+    "title": "Palantir Foundry / AIP Developer - Freelance Project (India-based, Full-Time Freelancers Only)",
+    "upworkUrl": "https://www.upwork.com/jobs/~022105583454019598441",
+    "description": "We're a forward-deployed AI engineering firm building custom AI solutions for regulated industries (Life Sciences, Healthcare, Financial Services), and we're looking for an experienced Palantir Foundry/AIP developer for a client project \u2014 hands-on work across Ontology design, data pipelines, and AIP-powered workflows, with the exact scope confirmed once we've found the right fit. This role is strictly for full-time freelancers or independent consultants: please do not apply if you're currently employed full-time elsewhere, as our client requires contributors who aren't moonlighting on the side of another job. Please share specific examples of production Foundry/AIP work you've shipped, not just platform familiarity.",
+    "vollnaProjectId": "75314983",
+    "aiQualification": "bid",
+    "aiReason": "new client: Vollna shows no spend and no hourly rate",
+    "source": "search"
+  },
+  "client_name": "",
+  "used": false
+}

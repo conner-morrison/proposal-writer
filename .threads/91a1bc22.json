@@ -1,0 +1,22 @@
+{
+  "id": "91a1bc22",
+  "kind": "instruction",
+  "title": "Instruction",
+  "channel": "jobs",
+  "sender": "w-56bd725cbcd05de7243460abbd797240",
+  "created": 1790905251.9175203,
+  "updated": 1790905251.9175317,
+  "completed": false,
+  "completed_at": null,
+  "status": "",
+  "url": "",
+  "assigned_id": null,
+  "messages": [
+    {
+      "seq": 1,
+      "role": "server",
+      "text": "{}",
+      "ts": 1790905251.9175317
+    }
+  ]
+}

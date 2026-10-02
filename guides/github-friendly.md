@@ -111,6 +111,11 @@ Each numbered item is one paragraph, separated by a blank line.
 This paragraph replaces the attractive starter. It is the whole reason this guide exists: the
 letter opens by handing the client working code, and everything after it is support.
 
+**A planted instruction comes before all of this.** If the post demands a specific word or line at
+the top of the proposal, that goes on the first line, above the greeting, exactly as written.
+Clients use it to check the post was read, and missing it is an instant rejection no matter what
+follows.
+
 **Greeting.** When the post gives a client name, open with `Hi [name],` and a blank line after it.
 When no name is known, there is no greeting at all: start straight into the first sentence.
 

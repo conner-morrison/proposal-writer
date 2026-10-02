@@ -323,6 +323,28 @@ in chat, since the output box is text only. With an API key set, the same button
 directly and the queue is unused.
 
 
+## The analyzer
+
+**A job arriving from the `search` feed is analysed the moment it lands.** Nothing else triggers
+it: the `upwork` and `vollna` alerts are not analysed, and this happens before any decision to bid,
+so it is separate from writing a proposal.
+
+The server flags the queue row on arrival and it shows on the card as *analysing…*. Watch for the
+work the way you watch the job queue:
+
+```
+curl -s localhost:8765/api/queue/analyzing            # {"seqs": [...]}
+curl -s localhost:8765/api/queue                      # the rows, with their decision and reason
+curl -s -X POST localhost:8765/api/queue/<seq>/analysis \
+  -d '{"analysis":"..."}'
+```
+
+`POST /api/queue/<seq>/analyze -d '{"redo":true}'` asks for one by hand, or re-runs an analysis
+that is already there.
+
+**What to analyse is in `analyzer-rule.md`, and nowhere else.** Read it before writing anything.
+While its rules section is still empty, say so in the analysis rather than inventing criteria.
+
 ## The translate button
 
 Under the proposal there is a button labelled with **the client's own country**, read off the

@@ -139,6 +139,13 @@ fieldset{border:0;margin-bottom:18px}
 .qrow{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)}
 .qrow.on{border-color:var(--accent);
   background:color-mix(in srgb,var(--accent) 7%,var(--bg))}
+.qana{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:6px 0 0 24px;
+  padding:6px 9px;border-radius:8px;border:1.5px solid var(--line);
+  background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.qana.pending{border-style:dashed;opacity:.75}
+.qanalab{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--accent);white-space:nowrap}
+.qanabody{font-size:12.5px;line-height:1.45;color:var(--ink)}
 .qdec{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:7px 0 0 24px;
   padding:6px 9px;border-radius:8px;border:1.5px solid var(--line)}
 .qdec.bid{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));
@@ -1821,8 +1828,28 @@ function renderQueue(rows){
       if (queueRedrawPending){ const r2 = queueRedrawPending; queueRedrawPending = null; renderQueue(r2); }
     });
 
+    // The analyzer's read, when there is one. Search jobs are flagged on
+    // arrival and this fills in once Claude Code has worked through
+    // analyzer-rule.md.
+    let ana = null;
+    if (r.analysis || r.analysis_wanted){
+      ana = document.createElement("div");
+      ana.className = "qana" + (r.analysis ? "" : " pending");
+      const lab = document.createElement("span");
+      lab.className = "qanalab";
+      lab.textContent = r.analysis ? "analysis" : "analysing\u2026";
+      ana.append(lab);
+      if (r.analysis){
+        const body = document.createElement("span");
+        body.className = "qanabody";
+        body.textContent = r.analysis;
+        ana.append(body);
+      }
+    }
+
     row.append(top, meta);
     if (dec) row.append(dec);
+    if (ana) row.append(ana);
     row.append(client);
     host.append(row);
   });

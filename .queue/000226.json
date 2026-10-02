@@ -20,5 +20,7 @@
     "source": "search"
   },
   "client_name": "",
-  "used": false
+  "used": false,
+  "analysis": "",
+  "analysis_wanted": true
 }

@@ -726,7 +726,11 @@ def relay_pull(wait=0.0):
                         "sender": msg.get("sender", ""), "ts": msg.get("ts", time.time()),
                         "body": body,
                         "client_name": _client_name(body.get("clientName")),
-                        "used": False}
+                        "used": False,
+                        # The analyzer fires on arrival for the search feed only,
+                        # per analyzer-rule.md. Other alerts are not analysed.
+                        "analysis_wanted": body.get("source") == "search",
+                        "analysis": ""}
                 queue_save(item)
                 kept.append(item)
                 title = body.get("title") or body.get("jobTitle") or ""
@@ -778,6 +782,8 @@ def queue_items():
             # jobs are coming from rather than presenting one undifferentiated list
             "source": b.get("source", "") or b.get("filter", ""),
             "sender": item.get("sender", ""),
+            "analysis": item.get("analysis", ""),
+            "analysis_wanted": bool(item.get("analysis_wanted")),
             "has_jd": bool(_as_text(b.get("description")).strip()),
             "client_name": _client_name(item.get("client_name")) or _client_name(client.get("name")),
             "used": bool(item.get("used")),
@@ -1101,6 +1107,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "no such thread"})
             return self._send(200, t)
 
+        if path == "/api/queue/analyzing":
+            return self._send(200, {"seqs": [
+                r["seq"] for r in queue_items()
+                if r["analysis_wanted"] and not r["analysis"]]})
+
         if path == "/api/queue":
             return self._send(200, {"queue": queue_items()})
 
@@ -1421,6 +1432,28 @@ class Handler(BaseHTTPRequestHandler):
                 item["used"] = bool(data["used"])
             queue_save(item)
             return self._send(200, {"ok": True})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/analysis", path)
+        if m:
+            item = queue_get(m.group(1))
+            if not item:
+                return self._send(404, {"error": "no such queue item"})
+            item["analysis"] = str(data.get("analysis") or "").strip()
+            item["analysis_wanted"] = False
+            item["analysed_at"] = time.time()
+            queue_save(item)
+            return self._send(200, {"ok": True})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/analyze", path)
+        if m:
+            item = queue_get(m.group(1))
+            if not item:
+                return self._send(404, {"error": "no such queue item"})
+            item["analysis_wanted"] = True
+            if data.get("redo"):
+                item["analysis"] = ""
+            queue_save(item)
+            return self._send(200, {"ok": True, "seq": item["seq"]})
 
         m = re.fullmatch(r"/api/queue/(\d+)/delete", path)
         if m:

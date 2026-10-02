@@ -24,5 +24,7 @@
     }
   },
   "client_name": "Abdessamad",
-  "used": false
+  "used": false,
+  "analysis": "",
+  "analysis_wanted": true
 }

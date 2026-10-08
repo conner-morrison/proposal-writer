@@ -135,7 +135,8 @@ Pressing **Write proposal** starts this sequence. It is the same in Auto and Man
 nothing in it is optional.
 
 1. **Read the job description and search GitHub** for one or two projects genuinely close to it.
-   This comes before the full analysis and before any drafting.
+   This comes before the full analysis and before any drafting, on every new job id including a
+   rerun of a post already searched.
 2. **Post the job id and the URLs found** to the relay's `github` channel. The UI shows them above
    the status bar as a checklist with unticked boxes.
 3. **Drop those URLs from working context.** Once they are on the server they belong to the
@@ -202,6 +203,23 @@ Keep each answer short, specific, and in the same copy-ready form as the proposa
 the same as your own open questions: the client wrote these and they get read before the cover
 letter, so treat them as the more important half.
 
+**Screening questions remembered after the proposal is written.** The **Answer screening** button,
+beside Copy prompt, asks for the answers on their own. It does not rewrite anything: the proposal,
+the guide and the open questions stay exactly as they are, and the answers appear in the Screening
+answers panel under the draft as though they had been pasted in before the write. Watch for it the
+way you watch the job queue:
+
+```
+curl -s localhost:8765/api/jobs/screening            # {"ids": [...]}
+curl -s -X POST localhost:8765/api/job/<id>/screening_answers -d '{"answers":[...]}'
+```
+
+**Answer them against the letter that already exists**, which means reading the posted proposal
+first. The client reads the answers and the cover letter together, so an answer that leads with a
+different project, or contradicts a claim the draft already made, costs more than a vague one
+would. Posting the answers clears the flag and empties the queue. **Do not touch `/result`**, and
+do not open a new round of questions: this is a gap being filled, not a new attempt at the job.
+
 **One box in the UI, two readings, decided by the tick beside it.** The field under the job
 description carries a checkbox. **Ticked** means what the user typed is the client's screening
 questions and the job arrives with it in `screening`: answer each one and post them back, exactly
@@ -237,10 +255,18 @@ and it is never shown to the client.
 
 **One round of questions. Version 1 carries all of them, version 2 carries none.**
 
-**On the first write, search GitHub before writing anything.** When a job is written for the
-first time (the **Write proposal** button, never a rewrite), the repository search is the *first*
-step, ahead of the job analysis and ahead of any drafting. Both modes: a job typed into Manual
-gets the same search as one ticked off the Auto queue.
+**Every new job searches GitHub before anything else.** The repository search is the *first* step,
+ahead of the job analysis and ahead of any drafting. Both modes: a job typed into Manual gets the
+same search as one ticked off the Auto queue.
+
+**A rerun searches too.** A queue row is kept after its proposal is written, so the same post can
+be run again and arrives as a fresh job id with identical inputs. Search it again anyway. Do not
+reuse the repositories an earlier gate returned for that post, and do not skip the publish on the
+grounds that the answer is predictable: a rerun is a fresh attempt, and the search is the first
+step of that attempt rather than a cached input to it.
+
+**The only thing that does not search is a revision of the same job id** after answers come back
+from the questions panel, which rewrites an existing letter rather than making a new attempt.
 
 **The sequence, in order:**
 

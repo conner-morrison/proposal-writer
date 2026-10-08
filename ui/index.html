@@ -160,6 +160,10 @@ fieldset{border:0;margin-bottom:18px}
 .qdec.skip .qdecchip{color:var(--bad)}
 .qdec.check .qdecchip{color:var(--warn)}
 .qdecwhy{font-size:12px;color:var(--muted);line-height:1.4}
+.urlrow{display:flex;gap:9px}
+.urlrow #mUrl{flex:1 1 auto;min-width:0}
+.urlrow #mCountry{flex:0 0 32%;min-width:120px}
+@media (max-width:620px){.urlrow{flex-direction:column}.urlrow #mCountry{flex:1 1 auto}}
 .qsrc{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   padding:1px 7px;border-radius:5px;background:color-mix(in srgb,var(--accent) 14%,transparent);
   color:var(--accent)}
@@ -171,7 +175,7 @@ fieldset{border:0;margin-bottom:18px}
 .qrow.writing .qmeta{color:var(--accent)}
 /* Claimed: cannot be re-ticked or removed mid-write, but the link and its
    copy button stay usable, since that is why you would look at it. */
-.qrow.writing input[type=checkbox],.qrow.writing .qdel{pointer-events:none}
+.qrow.writing input[type=checkbox]{pointer-events:none}
 .qrow.writing .qclient{opacity:1}
 .qtop{display:flex;align-items:flex-start;gap:9px}
 .qtop input[type=checkbox]{flex:none;margin-top:2px;width:15px;height:15px;cursor:pointer}
@@ -392,7 +396,11 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     <div id="manualPane" style="display:none">
       <fieldset>
         <legend>Upwork job URL <span class="soft">(optional, saved to the history)</span></legend>
-        <input id="mUrl" type="text" placeholder="https://www.upwork.com/jobs/~021…">
+        <div class="urlrow">
+          <input id="mUrl" type="text" placeholder="https://www.upwork.com/jobs/~021…">
+          <input id="mCountry" type="text" placeholder="Client country"
+                 title="Drives the translate button. A pasted post has no Location line, so type it here.">
+        </div>
       </fieldset>
       <fieldset>
         <legend>Job description</legend>
@@ -414,6 +422,7 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
       <button class="ghost" id="pause" disabled>Pause</button>
       <button class="ghost" id="stop" disabled>Stop</button>
       <button class="ghost" id="copyPrompt">Copy prompt</button>
+      <button class="ghost" id="askScreening" title="Answer the client's screening questions for the job already written. The proposal is left exactly as it is.">Answer screening</button>
       <button class="ghost" id="clear">Clear</button>
     </div>
 
@@ -816,7 +825,8 @@ const payload = () => {
   // Auto sends only the seq; the server reads the description, link and client
   // name off the stored relay message. Manual carries its own.
   return source === "manual"
-    ? {...base, jd: $("mJd").value, url: $("mUrl").value.trim()}
+    ? {...base, jd: $("mJd").value, url: $("mUrl").value.trim(),
+       country: $("mCountry").value.trim()}
     : {...base, queue_seq: queueSel};
 };
 
@@ -899,6 +909,15 @@ async function waitForJob(id){
     let job;
     try { job = await (await fetch("/api/job/" + id)).json(); }
     catch { continue; }
+
+    // Deleting a job from the history still returns valid JSON, so the fetch
+    // never throws. Without this the watcher runs for ever showing "undefined".
+    if (!job || !job.id || job.error){
+      run.jobId = null; run.paused = false; run.githubHeld = false;
+      setRunButtons(false);
+      loadRecent(false);
+      return setStatus("Job <b>" + id + "</b> is no longer here. Stopped watching.", "warn");
+    }
 
     renderGithubRefs(job);
     // The writer records the guide it decided on; in auto the radios follow it live.
@@ -1009,7 +1028,7 @@ $("clear").addEventListener("click", () => {
   $("screening").value = "";
   $("isScreening").checked = true; applyBoxMode();
   if (source === "manual"){
-    $("mJd").value = ""; $("mUrl").value = "";
+    $("mJd").value = ""; $("mUrl").value = ""; $("mCountry").value = "";
   } else {
     queueSel = null;
     document.querySelectorAll("#queue input[type=checkbox]").forEach(c => { c.checked = false; });
@@ -1387,18 +1406,20 @@ function markActiveJob(){
 let extrasTimer = null;
 
 /* Poll for anything posted after the proposal, until it stops changing. */
-function watchExtras(id){
+function watchExtras(id, budget){
   clearInterval(extrasTimer);
   const started = Date.now();
+  const cap = budget || 120000;
   let last = "";
   extrasTimer = setInterval(async () => {
     let job;
     try { job = await (await fetch("/api/job/" + id)).json(); } catch { return; }
+    if (!job || !job.id){ clearInterval(extrasTimer); return; }
     if (job.id !== openJobId && job.id !== qJob){ clearInterval(extrasTimer); return; }
     const sig = [(job.screening_answers || []).length, (job.questions || []).length,
                  (job.notes_reply || "").length].join("/");
     if (sig !== last){ last = sig; refreshExtras(id); }
-    if (Date.now() - started > 120000) clearInterval(extrasTimer);
+    if (Date.now() - started > cap) clearInterval(extrasTimer);
   }, 2000);
 }
 
@@ -1610,6 +1631,28 @@ async function submitAnswers(){
             ", rewriting job <b>" + qJob + "</b>…", "busy");
   waitForJob(qJob);
 }
+/* Screening questions remembered after the proposal was written. This asks for
+   the answers alone and leaves the draft alone: they land in the Screening
+   answers panel underneath it, each with its own copy button, the same as if
+   they had been pasted in before the write. */
+$("askScreening").addEventListener("click", async () => {
+  const id = openJobId || qJob;
+  if (!id)
+    return setStatus("<b>No job open.</b> Click one in the history first, so the answers have somewhere to go.", "warn");
+  if (!asScreening())
+    return setStatus("<b>Tick the Screening questions box.</b> Unticked, that text reads as notes for Claude rather than the client's questions.", "warn");
+  const text = $("screening").value.trim();
+  if (!text)
+    return setStatus("<b>Paste the client's screening questions</b> into the box above first, one per line.", "warn");
+  const n = text.split("\n").filter(l => l.trim()).length;
+  const {ok, data} = await post("/api/job/" + id + "/screening_request", {screening: text});
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+  openJobId = id;
+  setStatus("Answering " + n + " screening question" + (n === 1 ? "" : "s") +
+            " for job <b>" + id + "</b>. The proposal stays as written…", "busy");
+  watchExtras(id, 600000);
+});
+
 $("qSubmit").addEventListener("click", submitAnswers);
 $("qIgnoreAll").addEventListener("click", () => {
   document.querySelectorAll("#questions .q").forEach(box => {
@@ -1634,6 +1677,7 @@ async function openJob(id, quiet){
   const hadNotes = !!(job.notes || "").trim();
   $("isScreening").checked = !hadNotes;
   $("screening").value = (hadNotes ? job.notes : job.screening) || "";
+  if (job.country) $("mCountry").value = job.country;
   applyBoxMode();
   // In auto this is the read-out of what the decision picked for this job. In
   // manual the person owns the radios and opening an old job must not move them.
@@ -1702,7 +1746,8 @@ function renderQueue(rows){
     // Three states. Claimed with no proposal yet means it is being written.
     // Claimed with one means it is done, and the row is deliberately kept so
     // it can be run again. Neither state stops it being ticked a second time.
-    const writing = r.used && !r.has_proposal;
+    const live = ["queued", "working", "revising"].includes(r.job_status);
+    const writing = r.used && !r.has_proposal && live;
     const written = r.used && r.has_proposal;
     row.className = "qrow" + (writing ? " writing" : "") + (written ? " written" : "")
                   + (queueSel === r.seq ? " on" : "");
@@ -1713,7 +1758,16 @@ function renderQueue(rows){
     tick.title = written ? "Write this one again" : "Write the proposal for this one";
     // One at a time: ticking a row unticks whatever was ticked before.
     tick.addEventListener("change", () => {
+      const was = queueSel;
       queueSel = tick.checked ? r.seq : null;
+      // Picking a different job empties the box below. Text left over from the
+      // last job would otherwise ride along with this one, and screening
+      // questions attached to the wrong post are worse than none at all.
+      if (queueSel !== was && $("screening").value.trim()){
+        $("screening").value = "";
+        $("isScreening").checked = true;
+        applyBoxMode();
+      }
       renderQueue(rows);
       setStatus(tick.checked
         ? "Selected <b>" + escapeHtml(r.title) + "</b>. Press Write proposal."

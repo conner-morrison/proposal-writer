@@ -13,10 +13,13 @@ Everything below is the rule as it stands today. Add to it rather than rewriting
 
 ## When the search runs
 
-**On the first write only, and before anything else.** Pressing **Write proposal** starts with the
-repository search, ahead of the job analysis and ahead of any drafting. A rewrite never searches
-again. Both modes behave the same: a job typed into Manual gets the same search as one ticked off
-the Auto queue.
+**On every new job, and before anything else.** Pressing **Write proposal** starts with the
+repository search, ahead of the job analysis and ahead of any drafting. Both modes behave the
+same: a job typed into Manual gets the same search as one ticked off the Auto queue.
+
+**Including a rerun of a post already searched.** Queue rows are kept after writing, so the same
+job can come round again. Search it again rather than reusing the last answer. Only a revision of
+the same job id, after answers come back from the panel, skips the search.
 
 ## Whether the job can carry a search at all
 

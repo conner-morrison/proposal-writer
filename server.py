@@ -159,6 +159,17 @@ COUNTRY_LANGUAGE = {
 }
 
 
+def _country_from_name(name):
+    """Resolve a country typed into the UI. Unknown names are kept as the
+    country so the job still records where the client is, with no language,
+    which leaves the translate button inactive rather than guessing."""
+    raw = str(name or "").strip()
+    if not raw:
+        return None, None
+    hit = COUNTRY_LANGUAGE.get(raw.lower())
+    return hit if hit else (raw, None)
+
+
 def detect_country(jd: str):
     """(country, language) from the post's Location line, or (None, None).
 
@@ -312,7 +323,7 @@ def approve_registration(thread, assigned_id, note=""):
 
 
 def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
-            notes="", guide_mode="auto"):
+            notes="", guide_mode="auto", country=""):
     job = {
         "id": uuid.uuid4().hex[:8],
         "guide": guide_id,
@@ -335,8 +346,11 @@ def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
         "notes": notes.strip(),
         "notes_reply": "",
         # Client's country, for the translate button under the proposal.
-        "country": detect_country(jd)[0],
-        "language": detect_country(jd)[1],
+        # A pasted post carries no Location line, so the UI can supply the
+        # country by hand. What is typed wins over what is parsed.
+        "country": (_country_from_name(country)[0] or detect_country(jd)[0]),
+        "language": (_country_from_name(country)[1] if _country_from_name(country)[0]
+                     else detect_country(jd)[1]),
         "translation": "",
         "images": None,          # None = unknown, [] = none built, [names] = built
         "url": url.strip(),      # Upwork job URL, from the input box or edited in the history
@@ -1137,6 +1151,11 @@ class Handler(BaseHTTPRequestHandler):
                             out.append({"job": job["id"], **msg})
                 out.sort(key=lambda m: m["seq"])
                 return self._send(200, {"messages": out, "max_seq": MSG_SEQ[0]})
+        if path == "/api/jobs/screening":
+            with JOBS_LOCK:
+                ids = [j["id"] for j in JOBS.values() if j.get("screening_pending")]
+            return self._send(200, {"ids": ids})
+
         if path == "/api/jobs/answered":
             with JOBS_LOCK:
                 ids = [j["id"] for j in JOBS.values() if j["status"] == "revising"]
@@ -1506,6 +1525,30 @@ class Handler(BaseHTTPRequestHandler):
                 save_job(job)
             return self._send(200, {"ok": True})
 
+        # Screening questions remembered too late. The client's questions are
+        # read before the cover letter, so a job written without them is only
+        # half delivered, and the old fix was rerunning the whole post. This
+        # asks for the answers alone: the proposal, the guide and the open
+        # questions are left exactly as they were.
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/screening_request", path)
+        if m:
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                text = str(data.get("screening") or "").strip()
+                if not text:
+                    return self._send(400, {"error": "no screening questions given"})
+                asked = [l for l in text.splitlines() if l.strip()]
+                job["screening"] = text
+                job["screening_pending"] = True
+                job["note"] = (f"answering {len(asked)} screening question"
+                               f"{'' if len(asked) == 1 else 's'}, proposal untouched")
+                save_job(job)
+                print(f"  job {job['id']} wants {len(asked)} screening answers "
+                      f"(proposal stays as written)", flush=True)
+            return self._send(200, {"ok": True, "questions": len(asked)})
+
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/screening_answers", path)
         if m:
             with JOBS_LOCK:
@@ -1520,6 +1563,7 @@ class Handler(BaseHTTPRequestHandler):
                     for a in data.get("answers") or []
                     if str(a.get("answer") or "").strip()
                 ]
+                job["screening_pending"] = False
                 save_job(job)
             return self._send(200, {"ok": True, "count": len(job["screening_answers"])})
 
@@ -1769,7 +1813,8 @@ class Handler(BaseHTTPRequestHandler):
                 job = new_job(guide_id, person_id, jd, data.get("client") or "",
                               data.get("screening") or "", data.get("url") or "",
                               data.get("title") or "", data.get("notes") or "",
-                              data.get("guide_mode") or "auto")
+                              data.get("guide_mode") or "auto",
+                              data.get("country") or "")
                 if queued:
                     queued["used"] = True
                     queued["job_id"] = job["id"]

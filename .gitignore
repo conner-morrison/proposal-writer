@@ -1,3 +1,8 @@
+# This repo is public. Everything below either belongs to a client, identifies
+# one, or would let someone act as this worker. Add to the patterns rather than
+# naming single files: the one-file-at-a-time approach is how a confidential
+# tender reached the public remote on 2026-10-09.
+
 # Per-job working files, regenerated on every proposal
 milestones.jpg
 my_approach.jpg
@@ -7,21 +12,46 @@ approach-job.html
 # Job queue records: contain pasted job descriptions and drafted proposals
 .jobs/
 
+# Jobs pulled off the relay before they are written. Same content as .jobs,
+# one step earlier.
+.queue/
+
+# Relay threads: the server's instructions to this worker and our replies.
+# Ten of these were on the public remote before being ignored here.
+.threads/
+
 # The local proposal archive. Kept out of the public repo because these carry
 # client names, job descriptions and rates. Delete this line to version them.
 proposals/
 
-# Source documents that belong to other people
-Marketing_Dashboard_Scoping_Document.docx
-
-# Personal source documents
+# Source documents that belong to other people. Clients send briefs, tenders
+# and scoping documents as attachments, and they are confidential by default
+# even when nothing says so. Never commit one; keep the pattern, not a list.
+*.docx
+*.doc
 *.pdf
+*.rtf
+*.odt
+*.xlsx
+*.xls
+*.csv
+*.pptx
+*.rar
+*.zip
 
 # Relay worker credentials. This repo is public: the token must never be in it.
 .env
+.env.*
+!.env.example
 proposal-bridge.json
 
 # Editor and OS noise
 .DS_Store
 *.swp
+*.swo
 __pycache__/
+*.pyc
+.venv/
+venv/
+.idea/
+.vscode/

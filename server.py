@@ -698,6 +698,59 @@ def _normalise_job_body(body):
     return out
 
 
+def parse_labelled_body(text):
+    """general-vollna-search posts a job as labelled text, not as fields.
+
+    relay_pull used to replace any non-dict body with {}, so such a job failed
+    _looks_like_a_job and was filed as an empty "Instruction" thread and acked:
+    it never arrived as a job. This turns the labels back into the producer's
+    own key names, so _normalise_job_body maps them like any other row of its.
+
+    Mirrors parse_labelled_text in proposal_bridge.py. Kept separate on purpose:
+    the two processes are deployed independently and neither should import the
+    other. The difference is that the verdict is preserved here, because the
+    queue has columns for it, while the bridge drops it so that it cannot be
+    read as the client's words in a proposal.
+    """
+    labels = {
+        "job title": "Job title", "title": "Job title",
+        "job link": "Job link", "link": "Job link", "url": "Job link",
+        "job description": "Job description", "description": "Job description",
+        "projectid": "projectId", "project id": "projectId",
+        "decision": "decision", "qualification": "decision",
+        "reason": "reason",
+        "budget": "budget", "published": "published", "posted": "posted",
+        "location": "clientLocation", "rank": "clientRank",
+        "rating": "clientRating", "reviews": "clientReviews",
+        "payment verified": "clientPaymentVerified", "spent": "clientSpent",
+        "registered": "clientRegistered",
+    }
+    out, current = {}, None
+    for raw in text.splitlines():
+        line = raw.strip()
+        head, sep, rest = line.partition(":")
+        key = labels.get(head.strip().lower()) if sep else None
+        if key:
+            current = key
+            out[key] = rest.strip()
+            continue
+        if current and line:
+            out[current] = f"{out[current]}\n{line}".strip()
+    out = {k: v for k, v in out.items() if v}
+    if out and "Job title" not in out:
+        for raw in text.splitlines():
+            line = raw.strip()
+            head, sep, _ = line.partition(":")
+            if sep and labels.get(head.strip().lower()):
+                break
+            if line:
+                out["Job title"] = line
+                break
+    if out:
+        out.setdefault("source", "general-vollna-search")
+    return out
+
+
 def _looks_like_a_job(body):
     if not isinstance(body, dict):
         return False
@@ -724,7 +777,13 @@ def relay_pull(wait=0.0):
     payload = relay_call("GET", f"/messages?wait={wait}", timeout=wait + 20)
     kept = []
     for msg in payload.get("messages", []):
-        body = msg.get("body") if isinstance(msg.get("body"), dict) else {}
+        raw_body = msg.get("body")
+        if isinstance(raw_body, dict):
+            body = raw_body
+        elif isinstance(raw_body, str) and raw_body.strip():
+            body = parse_labelled_body(raw_body)      # labelled text, not fields
+        else:
+            body = {}
         body = _normalise_job_body(body)
         if msg.get("channel") == "github":
             # Replies land here from whichever worker answers the search.

@@ -31,6 +31,66 @@ CLIENT_FIELDS = [("Rank", "rank"), ("Rating", "rating"), ("Payment verified", "p
                  ("Hire rate", "hireRate"), ("Spent", "spent"), ("Registered", "registered")]
 JD_KEYS = ("description", "jobDescription", "jd", "snippet", "summary", "details", "text")
 
+# general-vollna-search posts a job as labelled text rather than as fields.
+# That text used to fall through to json.dumps() below, which made the job
+# description the JSON of itself: proposal-writer received a quoted blob whose
+# first line, the part it reads as the title, was "Decision: manual check\n...
+# These labels map the text back onto the field names the dict path already
+# understands, so such a job arrives as a job.
+LABELS = {
+    "job title": "title", "title": "title",
+    "job link": "upworkUrl", "link": "upworkUrl", "url": "upworkUrl",
+    "job description": "description", "description": "description",
+    "projectid": "vollnaProjectId", "project id": "vollnaProjectId",
+    "budget": "budget", "published": "published", "posted": "posted",
+    "rank": "clientRank", "rating": "clientRating", "reviews": "clientReviews",
+    "payment verified": "clientPaymentVerified", "location": "clientLocation",
+    "jobs posted": "clientJobsPosted", "hire rate": "clientHireRate",
+    "spent": "clientSpent", "registered": "clientRegistered",
+}
+
+# The producer's own bid verdict travels in the same text. It belongs to the
+# queue, not to the posting, so it is parsed off and dropped rather than left
+# to be read as the client's words when the proposal is written.
+VERDICT_LABELS = {"decision", "reason", "qualification", "ai decision", "ai reason"}
+
+
+def parse_labelled_text(text: str) -> dict:
+    """Turn "Label: value" lines into the ordinary job shape.
+
+    A value may run over several lines, so anything that is not itself a known
+    label continues the field above it. Lines belonging to a verdict label are
+    swallowed, which is what keeps the decision out of the job description.
+    """
+    out: dict[str, str] = {}
+    current: str | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        head, sep, rest = line.partition(":")
+        key = head.strip().lower()
+        if sep and (key in LABELS or key in VERDICT_LABELS):
+            current = LABELS.get(key)
+            if current is None:
+                continue                      # inside a verdict: drop its lines
+            out[current] = rest.strip()
+            continue
+        if current and line:
+            out[current] = f"{out[current]}\n{line}".strip()
+    out = {k: v for k, v in out.items() if v}
+
+    # Some posts lead with the title and no label on it.
+    if "title" not in out:
+        for raw in text.splitlines():
+            line = raw.strip()
+            if not line:
+                continue
+            head, sep, _ = line.partition(":")
+            if sep and head.strip().lower() in (LABELS | {k: k for k in VERDICT_LABELS}):
+                break
+            out["title"] = line
+            break
+    return out
+
 
 def http(method: str, url: str, body: Any = None, token: str = "", timeout: float = 60.0
          ) -> tuple[int, Any]:
@@ -59,13 +119,22 @@ def as_jd(body: Any) -> str:
     they would want it: the posting itself, then the terms, then who is
     offering them.
     """
+    if isinstance(body, str):
+        parsed = parse_labelled_text(body)
+        if parsed:
+            body = parsed
+        else:
+            return body.strip()      # readable already; never the JSON of itself
     if not isinstance(body, dict):
         return json.dumps(body, indent=2, ensure_ascii=False)
 
     lines: list[str] = [str(body.get("title") or "Untitled job").strip()]
     for key in JD_KEYS:
-        if isinstance(body.get(key), str) and body[key].strip():
-            lines += ["", body[key].strip()]
+        value = body.get(key)
+        if isinstance(value, list):  # that producer sends it as paragraphs
+            value = "\n\n".join(str(v).strip() for v in value if str(v).strip())
+        if isinstance(value, str) and value.strip():
+            lines += ["", value.strip()]
             break
 
     terms = [f"{label}: {body[key]}" for label, key in FACTS if body.get(key)]

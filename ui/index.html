@@ -139,13 +139,56 @@ fieldset{border:0;margin-bottom:18px}
 .qrow{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)}
 .qrow.on{border-color:var(--accent);
   background:color-mix(in srgb,var(--accent) 7%,var(--bg))}
+/* The analyzer's stack marks, per analyzer-rule.md step 1. One colour each so
+   the shape of the queue reads at a glance: mostly Data is a different week
+   from mostly Full. A dropped row has no mark no engineer here can do it. */
+.qstack{display:inline-flex;gap:4px;vertical-align:middle}
+.qmark{font:700 9.5px/1.6 inherit;padding:1px 6px;border-radius:4px;
+  letter-spacing:.06em;text-transform:uppercase}
+.qmark.data{background:color-mix(in srgb,#2f81f7 20%,transparent);color:#2f81f7}
+.qmark.ai{background:color-mix(in srgb,#a371f7 22%,transparent);color:#a371f7}
+.qmark.ml{background:color-mix(in srgb,#3fb950 20%,transparent);color:#3fb950}
+.qmark.full{background:color-mix(in srgb,#d29922 22%,transparent);color:#d29922}
+.qmark.crypto{background:color-mix(in srgb,#f0883e 22%,transparent);color:#f0883e}
+.qrow.dropped{opacity:.5}
+.qrow.dropped .qtitle{text-decoration:line-through}
+.qmark.drop{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+
+/* The client's past contracts. A count on the row, the detail on demand:
+   fifty entries is too much to carry in a queue that polls every 5 seconds. */
+.qhist{flex:none;height:23px;padding:0 8px;border:1.5px solid var(--line);
+  border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;
+  font:600 11px/1 inherit;letter-spacing:.02em;white-space:nowrap}
+.qhist:hover{border-color:var(--accent);color:var(--accent)}
+.qhist.on{border-color:var(--accent);color:var(--accent)}
+.qhist.none{opacity:.55;cursor:default}
+.qhist.none:hover{border-color:var(--line);color:var(--muted)}
+.qwh{margin:8px 0 0 24px;border-left:2px solid var(--line);padding:2px 0 2px 10px;
+  max-height:340px;overflow-y:auto}
+.qwhsum{font-size:11px;color:var(--muted);margin:0 0 7px;line-height:1.5}
+.qwhsum b{color:var(--fg)}
+.qwhe{padding:6px 0;border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.qwhe:first-of-type{border-top:0}
+.qwhh{display:flex;align-items:baseline;gap:7px}
+.qwhbadge{flex:none;font:700 9.5px/1.5 inherit;padding:1px 5px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:.05em}
+.qwhbadge.live{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.qwhbadge.done{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted)}
+.qwhname{font-size:12px;font-weight:600}
+.qwhterms{font-size:11px;color:var(--muted);margin:2px 0 0}
+.qwhfb{font-size:11px;margin:3px 0 0;color:var(--muted)}
+.qwhfb .who{font-weight:600}
+.qwhfb .score{font-weight:700;color:var(--fg)}
+.qwhfb .txt{font-style:italic}
 .qana{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:6px 0 0 24px;
   padding:6px 9px;border-radius:8px;border:1.5px solid var(--line);
   background:color-mix(in srgb,var(--accent) 5%,transparent)}
 .qana.pending{border-style:dashed;opacity:.75}
+/* Nothing is running on this one. Dimmer and flatter than `pending`, so a row
+   nobody has picked up does not look like a row being worked on. */
+.qana.waiting{border-style:dotted;opacity:.55}
 .qanalab{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
   color:var(--accent);white-space:nowrap}
-.qanabody{font-size:12.5px;line-height:1.45;color:var(--ink)}
 .qdec{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:7px 0 0 24px;
   padding:6px 9px;border-radius:8px;border:1.5px solid var(--line)}
 .qdec.bid{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));
@@ -186,8 +229,13 @@ fieldset{border:0;margin-bottom:18px}
 .qmeta{margin:5px 0 0 24px;font-size:11.5px;color:var(--muted);
   display:flex;flex-wrap:wrap;gap:4px 10px}
 .qwarn{color:var(--warn)}
-.qrow .qclient{margin:7px 0 0 24px;width:calc(100% - 24px);padding:5px 8px;font-size:12px;
-  border-radius:7px}
+/* On the meta line, beside the stack marks: the analyzer fills this in from the
+   client's own reviews, so it belongs with what the analyzer worked out rather
+   than on a row of its own. Narrow, because a first name is all it holds. */
+.qrow .qclient{flex:none;width:168px;padding:2px 7px;font-size:11.5px;
+  border-radius:6px;height:21px;border:1.5px solid #000}
+.qrow .qclient:placeholder-shown{width:140px;opacity:.75}
+.qrow .qclient:focus{width:200px;opacity:1;border-color:#000;outline:none}
 .qdel,.qcopy{flex:none;width:24px;height:23px;padding:0;border:1.5px solid var(--line);
   border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;
   display:flex;align-items:center;justify-content:center}
@@ -201,8 +249,8 @@ fieldset{border:0;margin-bottom:18px}
 legend{font-size:13px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
 .opts{display:flex;flex-wrap:wrap;gap:9px}
 .opt{position:relative}
-#guides.locked{opacity:.62}
-#guides.locked .opt span{cursor:not-allowed}
+#guides.locked,#people.locked{opacity:.62}
+#guides.locked .opt span,#people.locked .opt span{cursor:not-allowed}
 .opt input{position:absolute;opacity:0;width:0;height:0}
 .opt span{display:block;border:1.5px solid var(--line);border-radius:10px;padding:9px 14px;
   cursor:pointer;font-size:15px;user-select:none;transition:.12s}
@@ -374,8 +422,12 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
     </fieldset>
 
     <fieldset>
-      <legend>Person</legend>
+      <legend style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>Person</span>
+        <span class="opts" id="personMode" style="gap:6px"></span>
+      </legend>
       <div class="opts" id="people"></div>
+      <div class="hint" id="personHint" style="margin-top:8px"></div>
     </fieldset>
 
     <div class="tabs" id="srcTabs">
@@ -387,6 +439,7 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
       <div class="qhead">
         <legend style="margin:0">Upwork job queue <span id="queueCount" class="count"></span></legend>
         <button class="ghost tiny" id="queueRefresh">Refresh</button>
+        <button class="ghost tiny" id="queueClear">Clear all</button>
       </div>
       <div id="queue" class="queue"></div>
       <div class="hint" id="queueEmpty" style="display:none">Nothing waiting. Jobs arrive from the
@@ -553,9 +606,9 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
 <section class="page" id="page-profile">
   <div class="soon">
     <h2>Profile</h2>
-    <p>Nothing here yet. The obvious use is reading and editing the person profiles,
-      <code>Zachary.md</code> and <code>Mario.md</code>, from the browser instead of the editor,
-      since those are what every proposal is written from. Say the word and I'll wire it.</p>
+    <p>Nothing here yet. The obvious use is reading and editing the person profiles in
+      <code>profiles/</code> from the browser instead of the editor, since those are what every
+      proposal is written from. Say the word and I'll wire it.</p>
   </div>
 </section>
 </div>
@@ -688,7 +741,8 @@ function radios(hostId, items, name){
     if (savedExists ? item.id === saved : i === 0) input.checked = true;
     input.addEventListener("change", () => {
       remember("pw." + name, item.id);
-      if (name === "guide") remember("pw.guideAuto", item.id);
+      if (name === "guide")  remember("pw.guideAuto", item.id);
+      if (name === "person") remember("pw.personAuto", item.id);
     });
     const span = document.createElement("span");
     span.textContent = item.name;
@@ -714,8 +768,7 @@ async function loadConfig(){
     }
     radios("guides", cfg.guides, "guide");
     radios("people", cfg.people, "person");
-    renderGuideMode();
-    applyGuideMode();
+    for (const kind of ["guide", "person"]){ renderMode(kind); applyMode(kind); }
     $("mode").textContent = cfg.mode === "api"
       ? "API mode · " + cfg.model
       : "bridge mode · Claude Code writes it";
@@ -764,24 +817,54 @@ function applyBoxMode(){
 $("isScreening").addEventListener("change", applyBoxMode);
 applyBoxMode();
 
-/* Who owns the guide radios.
-   "auto"   the decision in decision-maker.md picks, and the radios are a read-out
-            of what it picked for the job on screen.
+/* Who owns the guide radios, and who owns the person radios.
+   "auto"   the writer decides it per job from the job description, and the
+            radios are a read-out of what it decided for the job on screen.
    "manual" the person picks, and nothing else is allowed to move the selection.
-   Distinct from `source` above, which is where the job description comes from. */
-let guideMode = remembered("pw.guideMode") === "manual" ? "manual" : "auto";
+   Both are distinct from `source` above, which is where the job description
+   comes from rather than who chose what.
 
-function renderGuideMode(){
-  const host = $("guideMode");
+   The two are the same mechanism, so they share one implementation. They
+   differ only in when the decision can be made, which is why the hints read
+   differently: the person has to be settled *before* the repository search,
+   because Connor's own work pool is searched first and Zachary's is not, so
+   the person decides what the search even is. The guide cannot be settled
+   until after it, because the choice turns on whether the search came back
+   with anything. */
+const MODED = {
+  guide: {
+    group: "guides", host: "guideMode", hint: "guideHint",
+    autoHint: "Chosen per job by <b>decision-maker.md</b>: github-friendly when the repository "
+      + "search returns something, article-based when it does not. The selection below shows "
+      + "what it chose.",
+    manualHint: "Your choice, kept across refreshes. Nothing overrides it.",
+  },
+  person: {
+    group: "people", host: "personMode", hint: "personHint",
+    autoHint: "Chosen per job by <b>decision-maker.md</b>: whoever's background actually answers "
+      + "the post. Decided before the repository search, since it is what the search runs "
+      + "against. The selection below shows who it chose.",
+    manualHint: "Your choice, kept across refreshes. Nothing overrides it.",
+  },
+};
+const modeOf = {
+  guide:  remembered("pw.guideMode")  === "manual" ? "manual" : "auto",
+  person: remembered("pw.personMode") === "manual" ? "manual" : "auto",
+};
+
+function renderMode(kind){
+  const host = $(MODED[kind].host);
   host.innerHTML = "";
   [["auto","Auto"],["manual","Manual"]].forEach(([id,label]) => {
     const l = document.createElement("label");
     l.className = "opt";
     const i = document.createElement("input");
-    i.type = "radio"; i.name = "guidemode"; i.value = id;
-    i.checked = guideMode === id;
+    i.type = "radio"; i.name = kind + "mode"; i.value = id;
+    i.checked = modeOf[kind] === id;
     i.addEventListener("change", () => {
-      guideMode = id; remember("pw.guideMode", id); applyGuideMode();
+      modeOf[kind] = id;
+      remember("pw." + kind + "Mode", id);
+      applyMode(kind);
     });
     const sp = document.createElement("span");
     sp.textContent = label;
@@ -791,44 +874,59 @@ function renderGuideMode(){
   });
 }
 
-function applyGuideMode(){
-  const auto = guideMode === "auto";
-  $("guides").classList.toggle("locked", auto);
-  document.querySelectorAll('#guides input[type=radio]').forEach(r => { r.disabled = auto; });
-  $("guideHint").innerHTML = auto
-    ? "Chosen per job by <b>decision-maker.md</b>: github-friendly when the repository search "
-      + "returns something, article-based when it does not. The selection below shows what it chose."
-    : "Your choice, kept across refreshes. Nothing overrides it.";
+function applyMode(kind){
+  const cfg = MODED[kind];
+  const auto = modeOf[kind] === "auto";
+  $(cfg.group).classList.toggle("locked", auto);
+  document.querySelectorAll("#" + cfg.group + " input[type=radio]")
+    .forEach(r => { r.disabled = auto; });
+  $(cfg.hint).innerHTML = auto ? cfg.autoHint : cfg.manualHint;
   // Put the right selection back under the new owner.
-  const want = auto ? remembered("pw.guideAuto") : remembered("pw.guide");
-  if (want) pick("guide", want);
+  const want = auto ? remembered("pw." + kind + "Auto") : remembered("pw." + kind);
+  if (want) pick(kind, want);
 }
 
-/* The only place the guide selection is allowed to move, so the two owners
-   never fight. Manual selections are remembered separately from decided ones,
+/* The only place either selection is allowed to move, so the two owners never
+   fight. Decided selections are remembered separately from hand-picked ones,
    which is what lets switching modes restore the right one. */
-function setGuide(id, who){
+function setChoice(kind, id, who){
   if (!id) return;
   if (who === "decision"){
-    remember("pw.guideAuto", id);
-    if (guideMode !== "auto") return;      // manual is showing, leave it alone
+    remember("pw." + kind + "Auto", id);
+    if (modeOf[kind] !== "auto") return;   // manual is showing, leave it alone
   } else {
-    remember("pw.guide", id);
-    if (guideMode !== "manual") return;
+    remember("pw." + kind, id);
+    if (modeOf[kind] !== "manual") return;
   }
-  pick("guide", id);
+  pick(kind, id);
+}
+const setGuide  = (id, who) => setChoice("guide",  id, who);
+const setPerson = (id, who) => setChoice("person", id, who);
+
+/* Every job is created from a queue row, and /api/generate takes a seq and
+   nothing else. A pasted description is therefore made into a row first, by
+   /api/queue/paste, and then generated from its seq exactly like a relay job.
+   That is what gives a pasted job the same link, title and client the relay
+   rows have, and it is why the raw-jd shape is gone. */
+async function seqForThisRun(){
+  if (source !== "manual") return queueSel;
+  const {ok, data} = await post("/api/queue/paste", {
+    jd: $("mJd").value,
+    url: $("mUrl").value.trim(),
+  });
+  if (!ok) throw new Error(data.error || "could not queue the pasted job");
+  return data.seq;
 }
 
-const payload = () => {
-  const base = {guide: picked("guide"), person: picked("person"),
-                guide_mode: guideMode, ...splitBox()};
-  // Auto sends only the seq; the server reads the description, link and client
-  // name off the stored relay message. Manual carries its own.
-  return source === "manual"
-    ? {...base, jd: $("mJd").value, url: $("mUrl").value.trim(),
-       country: $("mCountry").value.trim()}
-    : {...base, queue_seq: queueSel};
-};
+const payload = (seq) => ({
+  guide: picked("guide"), person: picked("person"),
+  guide_mode: modeOf.guide, person_mode: modeOf.person,
+  ...splitBox(),
+  queue_seq: seq,
+  // The country box still travels: a pasted post has no Location line for
+  // the server to read one out of.
+  ...(source === "manual" ? {country: $("mCountry").value.trim()} : {}),
+});
 
 function setSource(next, quiet){
   source = next === "manual" ? "manual" : "auto";
@@ -857,10 +955,22 @@ $("go").addEventListener("click", async () => {
     return setStatus("<b>Tick a job in the queue first.</b>", "warn");
   }
   const person = state.people.find(p => p.id === picked("person"));
+  const who = person ? person.name : picked("person");
   $("go").disabled = true;
-  setStatus("Writing for <b>" + (person ? person.name : picked("person")) + "</b>…", "busy");
+  // In auto the radios are only carrying a default, so naming it here would
+  // promise a person the writer has not chosen yet. It reports back who it
+  // picked, and the radios follow.
+  setStatus(modeOf.person === "manual"
+    ? "Writing for <b>" + who + "</b>\u2026"
+    : "Writing\u2026 the person is decided per job, starting from <b>" + who + "</b>.", "busy");
   setImageState(null);
-  const {ok, data} = await post("/api/generate", payload());
+  let seq;
+  try { seq = await seqForThisRun(); }
+  catch (err){
+    $("go").disabled = false;
+    return setStatus("<b>Failed:</b> " + err.message, "bad");
+  }
+  const {ok, data} = await post("/api/generate", payload(seq));
   if (!ok){
     setRunButtons(false);
     if (data.mode === "manual")
@@ -920,7 +1030,9 @@ async function waitForJob(id){
     }
 
     renderGithubRefs(job);
-    // The writer records the guide it decided on; in auto the radios follow it live.
+    // The writer records what it decided on; in auto the radios follow it live.
+    // The person lands first, because it is settled before the search.
+    setPerson(job.person, "decision");
     setGuide(job.guide, "decision");
 
     // The writer pauses here while it waits for the github channel to answer
@@ -1004,7 +1116,10 @@ $("copyPrompt").addEventListener("click", async () => {
   } else if (queueSel === null){
     return setStatus("<b>Tick a job in the queue first.</b>", "warn");
   }
-  const {ok, data} = await post("/api/prompt", payload());
+  let seq;
+  try { seq = await seqForThisRun(); }
+  catch (err){ return setStatus("<b>Failed:</b> " + err.message, "bad"); }
+  const {ok, data} = await post("/api/prompt", payload(seq));
   if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown error"), "bad");
   await navigator.clipboard.writeText(data.prompt);
   setStatus("Prompt copied. <b>Paste it into Claude Code</b>, then paste the reply here.", "ok");
@@ -1142,6 +1257,16 @@ $("output").addEventListener("paste", (e) => {
   }
 });
 $("output").addEventListener("input", () => { sourceMarkdown = null; updateCount(); });
+
+let recentSig = null;
+
+/* Only the fields /api/jobs actually returns. Changing any of them is worth a
+   redraw; anything else is not. awaiting_github is in here so the list reacts
+   when a gate arms or clears, not just when a proposal lands. */
+function recentSignature(jobs){
+  return jobs.map(j => [j.id, j.status, j.done ? 1 : 0, j.title || "", j.note || "",
+                        j.awaiting_github ? 1 : 0].join("|")).join("~");
+}
 
 async function loadRecent(autoload){
   let jobs = [];
@@ -1282,6 +1407,7 @@ async function loadRecent(autoload){
     });
   });
   histJobs = jobs;
+  recentSig = recentSignature(jobs);
   scheduleAlarms();
   markActiveJob();
   if (autoload){
@@ -1682,7 +1808,7 @@ async function openJob(id, quiet){
   // In auto this is the read-out of what the decision picked for this job. In
   // manual the person owns the radios and opening an old job must not move them.
   setGuide(job.guide, "decision");
-  pick("person", job.person);
+  setPerson(job.person, "decision");
   renderQuestions(job); renderScreening(job); renderNotesReply(job); renderGithubRefs(job);
   if (job.status !== "done")
     return setStatus("Job <b>" + id + "</b> is " + job.status + ": " + (job.note || ""), "warn");
@@ -1720,8 +1846,97 @@ async function loadQueue(quiet){
 
 let queueRedrawPending = null;
 
+/* Which history panels are open, and what they hold. Both live out here rather
+   than inside the row, because renderQueue empties the list and rebuilds it
+   every 5 seconds: anything kept on the element is destroyed under the reader,
+   which is exactly how an open panel closed itself a moment after opening.
+   Keyed by seq, so a panel reopens in the same state after each redraw and the
+   contracts are fetched once rather than on every poll. */
+let histOpen = new Set();
+let histData = {};
+let histScroll = {};      // how far down each open panel was read to
+
+/* One client's past contracts, drawn into an already-open panel.
+
+   Every field is allowed to be missing: Upwork shows "?" for hours, rate and
+   billed on some contracts, and feedback text is often "(no text)" with only a
+   score behind it. So nothing here assumes a value is present, and the summary
+   totals only what it can actually read. */
+function drawHistory(host, data){
+  host.innerHTML = "";
+  const entries = data.entries || [];
+
+  const money = s => Number(String(s || "").replace(/[^0-9.]/g, "")) || 0;
+  const live = entries.filter(e => e.status === "in progress").length;
+  const billed = entries.reduce((t, e) => t + money(e.billed), 0);
+  const hours = entries.reduce((t, e) => t + money(e.hours), 0);
+  const rates = entries.map(e => money(e.rate)).filter(Boolean);
+  const avg = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : 0;
+
+  const sum = document.createElement("div");
+  sum.className = "qwhsum";
+  const bits = [`<b>${data.count}</b> contract${data.count === 1 ? "" : "s"}`];
+  if (live) bits.push(`<b>${live}</b> in progress`);
+  if (billed) bits.push(`billed <b>$${billed.toLocaleString(undefined,
+    {maximumFractionDigits: 0})}</b>`);
+  if (hours) bits.push(`<b>${hours.toLocaleString()}</b> hrs`);
+  if (avg) bits.push(`avg <b>$${avg.toFixed(2)}/hr</b>`);
+  sum.innerHTML = bits.join(" &middot; ")
+    + (entries.length < data.count
+       ? ` <span style="opacity:.7">(${entries.length} listed)</span>` : "");
+  host.append(sum);
+
+  entries.forEach(e => {
+    const box = document.createElement("div"); box.className = "qwhe";
+
+    const head = document.createElement("div"); head.className = "qwhh";
+    const badge = document.createElement("span");
+    badge.className = "qwhbadge " + (e.status === "in progress" ? "live" : "done");
+    badge.textContent = e.status === "in progress" ? "live" : "#" + (e.index ?? "");
+    const name = document.createElement("span");
+    name.className = "qwhname"; name.textContent = e.name || "(untitled contract)";
+    head.append(badge, name);
+    box.append(head);
+
+    // "?" is Upwork withholding the figure, so show it as unknown rather than
+    // printing a question mark the reader has to interpret.
+    const shown = v => (v && v !== "?") ? v : null;
+    const terms = [shown(e.period), shown(e.hours), shown(e.rate),
+                   shown(e.billed) ? "billed " + e.billed : null].filter(Boolean);
+    if (terms.length){
+      const t = document.createElement("div");
+      t.className = "qwhterms"; t.textContent = terms.join("  ·  ");
+      box.append(t);
+    } else if (shown(e.period) === null){
+      const t = document.createElement("div");
+      t.className = "qwhterms"; t.textContent = "terms not shown";
+      box.append(t);
+    }
+
+    [["to_freelancer", "to freelancer"], ["to_client", "to client"]].forEach(([k, label]) => {
+      const fb = e[k];
+      if (!fb) return;
+      const d = document.createElement("div"); d.className = "qwhfb";
+      d.innerHTML = `<span class="who">${label}</span> `
+        + `<span class="score">${escapeHtml(fb.score)}</span>`
+        + (fb.text ? ` <span class="txt">${escapeHtml(fb.text)}</span>` : "");
+      box.append(d);
+    });
+
+    host.append(box);
+  });
+
+  if (!entries.length){
+    const n = document.createElement("div");
+    n.className = "qwhsum";
+    n.textContent = data.note || "No contracts listed for this client.";
+    host.append(n);
+  }
+}
+
 function renderQueue(rows){
   const host = $("queue"), empty = $("queueEmpty");
+  window.__queueRows = rows;      // so Clear all can say how many it will take
   const open = rows.filter(r => !r.used).length;
   $("queueCount").textContent = rows.length
     ? open + " waiting" + (rows.length - open ? ", " + (rows.length - open) + " written" : "")
@@ -1738,6 +1953,15 @@ function renderQueue(rows){
     queueRedrawPending = rows;
     return;
   }
+  // Someone is reading a client's past contracts. Rebuilding the list throws
+  // away their place in it, so hold the redraw until the panel is closed, the
+  // same way typing a client name does. Fifty contracts takes longer to read
+  // than the 5 seconds between polls.
+  if (histOpen.size && host.children.length){
+    queueRedrawPending = rows;
+    return;
+  }
+
   queueRedrawPending = null;
   host.innerHTML = "";
 
@@ -1750,6 +1974,7 @@ function renderQueue(rows){
     const writing = r.used && !r.has_proposal && live;
     const written = r.used && r.has_proposal;
     row.className = "qrow" + (writing ? " writing" : "") + (written ? " written" : "")
+                  + (r.dropped ? " dropped" : "")
                   + (queueSel === r.seq ? " on" : "");
 
     const top = document.createElement("div"); top.className = "qtop";
@@ -1810,7 +2035,124 @@ function renderQueue(rows){
       if (queueSel === r.seq) queueSel = null;
       loadQueue(true);
     });
+    // The client's work history, when the feed carried a section for it. null
+    // means no section at all, which is a different thing from a client whose
+    // section says zero: a new client is a fact worth seeing, not a blank.
+    let hist = null, histPanel = null;
+    if (r.work_history !== null && r.work_history !== undefined){
+      const open = histOpen.has(r.seq);
+      hist = document.createElement("button");
+      hist.className = "qhist" + (r.work_history ? "" : " none") + (open ? " on" : "");
+      hist.textContent = r.work_history
+        ? "history " + r.work_history
+        : "no history";
+      hist.title = r.work_history
+        ? (open ? "Hide" : "Show") + " this client's " + r.work_history
+          + " past contract" + (r.work_history === 1 ? "" : "s")
+        : "This client has no past contracts on Upwork";
+      histPanel = document.createElement("div");
+      histPanel.className = "qwh";
+      histPanel.style.display = open ? "block" : "none";
+
+      // A redraw rebuilds this element, so the reading position has to be put
+      // back or a long list jumps to the top every 5 seconds.
+      histPanel.addEventListener("scroll", () => {
+        histScroll[r.seq] = histPanel.scrollTop;
+      });
+      const draw = () => {
+        drawHistory(histPanel, histData[r.seq]);
+        const want = histScroll[r.seq];
+        if (!want) return;
+        // During a redraw this row is not in the document yet, and scrollTop
+        // on a detached element is discarded, which is what sent a reopened
+        // panel back to the first contract. Apply it once the browser has
+        // attached and laid the panel out.
+        requestAnimationFrame(() => {
+          histPanel.scrollTop = want;
+          if (!histPanel.scrollTop) requestAnimationFrame(() => { histPanel.scrollTop = want; });
+        });
+      };
+
+      // Fills the panel, from cache when we already have the contracts.
+      const load = async () => {
+        if (histData[r.seq]){ draw(); return; }
+        histPanel.innerHTML = '<div class="qwhsum">loading…</div>';
+        try {
+          const res = await fetch("/api/queue/" + r.seq + "/history");
+          histData[r.seq] = await res.json();
+        } catch {
+          histPanel.innerHTML = '<div class="qwhsum">could not load the history</div>';
+          return;
+        }
+        draw();
+      };
+      if (open) load();                  // survived a redraw: draw it again
+
+      hist.addEventListener("click", () => {
+        if (!r.work_history) return;               // nothing to open
+        if (histOpen.has(r.seq)){
+          histOpen.delete(r.seq);
+          histPanel.style.display = "none";
+          hist.classList.remove("on");
+          delete histScroll[r.seq];        // next open starts at the top
+          // Nothing is being read now, so let the held-back redraw through.
+          if (!histOpen.size && queueRedrawPending){
+            const held = queueRedrawPending;
+            queueRedrawPending = null;
+            renderQueue(held);
+          }
+          return;
+        }
+        histOpen.add(r.seq);
+        hist.classList.add("on");
+        histPanel.style.display = "block";
+        load();
+      });
+    }
+
     top.append(tick, title, copy, del);
+    if (hist) top.insertBefore(hist, copy);
+
+    // What the analyzer decided this job is, per analyzer-rule.md. Dropped
+    // rows keep their place deliberately: a wrong call should be visible and
+    // reversible, not silently gone.
+    let marks = null;
+    if ((r.stack && r.stack.length) || r.dropped){
+      marks = document.createElement("span");
+      marks.className = "qstack";
+      const show = r.dropped ? ["drop"] : r.stack;
+      show.forEach(s => {
+        const b = document.createElement("span");
+        b.className = "qmark " + s.toLowerCase();
+        b.textContent = s === "drop" ? "dropped" : s;
+        b.title = s === "drop"
+          ? "No Data, AI, ML, Full-stack or Crypto work here, so this one was dropped"
+          : s + " work";
+        marks.append(b);
+      });
+    }
+
+    const client = document.createElement("input");
+    client.type = "text"; client.className = "qclient";
+    client.placeholder = "Client name for the greeting (optional)";
+    client.value = r.client_name || "";
+    let clientSave = null;
+    const saveClient = () => {
+      post("/api/queue/" + r.seq + "/meta", {client_name: client.value});
+      r.client_name = client.value;
+    };
+    // Typing saves on a short delay, so a name survives a page reload even if
+    // the field is never blurred.
+    client.addEventListener("input", () => {
+      r.client_name = client.value;
+      clearTimeout(clientSave);
+      clientSave = setTimeout(saveClient, 600);
+    });
+    client.addEventListener("change", () => { clearTimeout(clientSave); saveClient(); });
+    client.addEventListener("blur", () => {
+      clearTimeout(clientSave); saveClient();
+      if (queueRedrawPending){ const r2 = queueRedrawPending; queueRedrawPending = null; renderQueue(r2); }
+    });
 
     const meta = document.createElement("div"); meta.className = "qmeta";
     const bits = [];
@@ -1823,6 +2165,11 @@ function renderQueue(rows){
       if (r.sender && r.sender !== r.source) src.title = "sender: " + r.sender;
       meta.append(src);
     }
+    // What the analyzer decided the job is, beside the source it came from:
+    // the two read together as the provenance of the row, where it came from
+    // and what it turned out to be.
+    if (marks) meta.append(marks);
+    meta.append(client);
     if (r.budget) bits.push(r.budget);
     if (r.published) bits.push(r.published);
     if (r.location) bits.push(r.location);
@@ -1860,51 +2207,38 @@ function renderQueue(rows){
       }
     }
 
-    const client = document.createElement("input");
-    client.type = "text"; client.className = "qclient";
-    client.placeholder = "Client name for the greeting (optional)";
-    client.value = r.client_name || "";
-    let clientSave = null;
-    const saveClient = () => {
-      post("/api/queue/" + r.seq + "/meta", {client_name: client.value});
-      r.client_name = client.value;
-    };
-    // Typing saves on a short delay, so a name survives a page reload even if
-    // the field is never blurred.
-    client.addEventListener("input", () => {
-      r.client_name = client.value;
-      clearTimeout(clientSave);
-      clientSave = setTimeout(saveClient, 600);
-    });
-    client.addEventListener("change", () => { clearTimeout(clientSave); saveClient(); });
-    client.addEventListener("blur", () => {
-      clearTimeout(clientSave); saveClient();
-      if (queueRedrawPending){ const r2 = queueRedrawPending; queueRedrawPending = null; renderQueue(r2); }
-    });
-
     // The analyzer's read, when there is one. Search jobs are flagged on
     // arrival and this fills in once Claude Code has worked through
     // analyzer-rule.md.
     let ana = null;
     if (r.analysis || r.analysis_wanted){
       ana = document.createElement("div");
-      ana.className = "qana" + (r.analysis ? "" : " pending");
+      ana.className = "qana" + (r.analysis ? ""
+                      : (r.analysing_since ? " pending" : " waiting"));
       const lab = document.createElement("span");
       lab.className = "qanalab";
-      lab.textContent = r.analysis ? "analysis" : "analysing\u2026";
+      // Status only. The reasoning is kept on the server and goes out by
+      // Telegram; printing it here made every search row several lines tall
+      // and buried the marks and the title under it.
+      // Three states, not two. "analysing…" used to show for any unanalysed
+      // row, which read as work in progress when nothing was running at all —
+      // the analyzer is a Claude Code session, and a row sits untouched when
+      // none is watching. It now says so.
+      lab.textContent = r.analysis
+        ? "analysed"
+        : (r.analysing_since ? "analysing\u2026" : "awaiting analysis");
+      lab.title = r.analysis
+        ? "Analysed. The stack marks beside the title are its conclusion."
+        : (r.analysing_since
+            ? "A Claude Code session is working through this one now."
+            : "Queued for the analyzer. Nothing is working on it yet.");
       ana.append(lab);
-      if (r.analysis){
-        const body = document.createElement("span");
-        body.className = "qanabody";
-        body.textContent = r.analysis;
-        ana.append(body);
-      }
     }
 
     row.append(top, meta);
     if (dec) row.append(dec);
+    if (histPanel) row.append(histPanel);
     if (ana) row.append(ana);
-    row.append(client);
     host.append(row);
   });
 }
@@ -1922,7 +2256,44 @@ $("queueRefresh").addEventListener("click", async () => {
                        : "Nothing new on the relay.", "ok");
 });
 
+/* Refresh pulls from the relay and only ever adds. Emptying the list is its
+   own action, which is why this button exists beside it rather than being
+   folded into Refresh: one asks the relay for more work, the other throws work
+   away, and a single button doing both would be a trap. */
+$("queueClear").addEventListener("click", async () => {
+  const n = (window.__queueRows || []).length;
+  if (!confirm("Delete every row in the queue"
+      + (n ? " (" + n + " shown, plus any dropped ones hidden from the list)" : "")
+      + "? This cannot be undone.")) return;
+  const {ok, data} = await post("/api/queue/clear", {});
+  if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown error"), "bad");
+  queueSel = null;
+  renderQueue(data.queue || []);
+  setStatus("Queue cleared, <b>" + data.removed + "</b> row"
+            + (data.removed === 1 ? "" : "s") + " removed.", "ok");
+});
+
 setInterval(() => loadQueue(true), 5000);
+
+/* The result list used to refresh only on a page load, on a click, or while
+   waitForJob was watching the one job this page had started. A job that arrives
+   from the feed and is written over the API was never watched here, so the
+   finished proposal did not appear: Night Fury announced it and the panel stayed
+   empty until a reload. This polls for that case.
+
+   It redraws only when something actually changed, because loadRecent rebuilds
+   every row from scratch, and it holds off while a row is being edited so a
+   half-typed boost time is not thrown away mid-keystroke. */
+async function pollRecent(){
+  let jobs;
+  try { jobs = (await (await fetch("/api/jobs")).json()).jobs || []; } catch { return; }
+  const sig = recentSignature(jobs);
+  if (sig === recentSig) return;
+  if ($("recent").contains(document.activeElement)) return;   // mid-edit, try later
+  recentSig = sig;
+  loadRecent(false);
+}
+setInterval(pollRecent, 5000);
 
 /* ---------------- Report page ----------------
    Threads are the conversation with the server: instructions it sent us, and

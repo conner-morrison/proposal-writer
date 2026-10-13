@@ -25,12 +25,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 GUIDES = ROOT / "guides"
+PROFILES = ROOT / "profiles"
 UI = ROOT / "ui"
 PORT = int(os.environ.get("PROPOSAL_UI_PORT", "8765"))
 MODEL = os.environ.get("PROPOSAL_UI_MODEL", "claude-opus-5")
 
-# A person profile is a root .md file with a single-word name: Mario.md, Zachary.md.
-# Everything else at the root (CLAUDE.md, proposal-*.md, working notes) is skipped.
+# A person profile is a single-word .md file in profiles/: Mario.md, Zachary.md.
+# Everything personal lives in that folder and the folder is gitignored, so this
+# repo deploys with somebody else's people in it. A hyphenated name there is
+# supporting material rather than a person (connor-github.md), and these names
+# are skipped outright in case one is ever dropped in beside the profiles.
 NOT_A_PERSON = {"CLAUDE.md", "README.md", "MEMORY.md"}
 
 # Job queue. Without an API key the UI hands the job to the Claude Code session
@@ -323,7 +327,7 @@ def approve_registration(thread, assigned_id, note=""):
 
 
 def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
-            notes="", guide_mode="auto", country=""):
+            notes="", guide_mode="auto", country="", person_mode="auto"):
     job = {
         "id": uuid.uuid4().hex[:8],
         "guide": guide_id,
@@ -331,6 +335,12 @@ def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
         # "manual" means the person chose and the writer must not change it.
         "guide_mode": "manual" if guide_mode == "manual" else "auto",
         "person": person_id,
+        # The same two readings for the person, and the same enforcement. What
+        # arrives here is the dropdown either way, so the job is always
+        # writable; in auto that value is a default the writer may replace.
+        # Unlike the guide, this one has to be settled *first*: whose pool the
+        # repository search runs against depends on it.
+        "person_mode": "manual" if person_mode == "manual" else "auto",
         "client": client.strip(),
         "jd": jd.strip(),
         # A job off the relay knows its real Upwork title. Only guess when
@@ -387,6 +397,7 @@ def load_jobs():
         if not job.get("title"):
             job["title"] = derive_title(job.get("jd", ""))
         job.setdefault("guide_mode", "auto")
+        job.setdefault("person_mode", "auto")
         if not job.get("country"):
             job["country"], job["language"] = detect_country(job.get("jd", ""))
             job.setdefault("translation", "")
@@ -435,11 +446,9 @@ def relay_call(method, path, body=None, timeout=30):
         return json.loads(res.read() or b"null")
 
 
-def telegram_send(text, tag=""):
-    """One message. Returns True if Telegram accepted it, and logs either way,
-    so "did the server send that?" has an answer."""
-    env = read_env()
-    token, chat = env.get("TELEGRAM_BOT_TOKEN", ""), env.get("TELEGRAM_CHAT_ID", "")
+def _telegram_post(token, chat, text, tag="", bot=""):
+    """One message to one bot. Returns True if Telegram accepted it, and logs
+    either way, so "did the server send that?" has an answer."""
     if not token or not chat:
         return False
     try:
@@ -450,51 +459,158 @@ def telegram_send(text, tag=""):
             data=data, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=15) as res:
             ok = bool(json.loads(res.read() or b"null").get("ok"))
-        print(f"  telegram {'sent' if ok else 'refused'} {tag}".rstrip(), flush=True)
+        print(f"  telegram[{bot}] {'sent' if ok else 'refused'} {tag}".rstrip(), flush=True)
         return ok
     except Exception as exc:
-        print(f"  telegram send failed {tag}: {exc}", flush=True)
+        print(f"  telegram[{bot}] send failed {tag}: {exc}", flush=True)
         return False
 
 
-def telegram_new_job(item):
-    """Two messages per job, in this order and no other:
+def telegram_send(text, tag=""):
+    """Night Fury: proposal done, boost due, and a write that stalled or failed.
 
-      1. the title, the budget and the link
-      2. the job description on its own
-
-    The headline leads so the notification preview names the job. The
-    description follows as its own message, which reads and forwards cleanly
-    with nothing wrapped round it.
-
-    Skipped for an item already claimed for writing: a job being worked on is
-    not news. Never raises, since the job is saved before this runs.
+    Never job info. The bot a message arrives from is what says whether it is a
+    job worth reading or a proposal worth sending, before either is opened.
     """
-    if item.get("used"):
-        print(f"  telegram skipped seq {item.get('seq')}: already claimed", flush=True)
-        return False
+    env = read_env()
+    return _telegram_post(env.get("TELEGRAM_BOT_TOKEN", ""),
+                          env.get("TELEGRAM_CHAT_ID", ""), text, tag, bot="night-fury")
 
+
+def telegram_jobs_send(text, tag=""):
+    """Hungry: job info from the analyzer, and nothing else.
+
+    Its own token and chat id, which is the whole point of the split. Until
+    2026-10-13 nothing read these two variables at all: `telegram_new_job` was
+    written for Night Fury's token and then disabled, so the jobs bot was
+    configured in .env and never once used.
+    """
+    env = read_env()
+    return _telegram_post(env.get("TELEGRAM_JOBS_BOT_TOKEN", ""),
+                          env.get("TELEGRAM_JOBS_CHAT_ID", ""), text, tag, bot="hungry")
+
+
+def work_in_flight():
+    """What is being worked on right now, or None.
+
+    One thing at a time, on the user's instruction of 2026-10-13: an analysis
+    and a proposal are both "work", and the next one does not start until the
+    current one is finished. Two things can hold the floor —
+
+      * a queue row claimed for analysis (`analysing_since` set, no analysis yet)
+      * a job being written (status "working" or "revising")
+
+    A queued job is not in flight: it has been created but nothing has picked
+    it up, so it does not block anything.
+    """
+    if QUEUE_DIR.is_dir():
+        for f in sorted(QUEUE_DIR.glob("*.json")):
+            try:
+                item = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if item.get("analysing_since") and not item.get("analysis"):
+                return {"kind": "analysis", "seq": item["seq"],
+                        "since": item["analysing_since"],
+                        "title": (item.get("body") or {}).get("title") or ""}
+    with JOBS_LOCK:
+        for job in JOBS.values():
+            if job.get("status") in ("working", "revising"):
+                return {"kind": "proposal", "job": job["id"],
+                        "since": job.get("created"),
+                        "title": job.get("title") or ""}
+    return None
+
+
+def telegram_job_analysed(item):
+    """Hungry hears about an analysed job from the general vollna search.
+
+    **Sent after the analysis and never before it**, on the user's instruction
+    of 2026-10-13, because the analysis is what produces the three things worth
+    knowing: whether the job is dropped, whose job it is, and the client's
+    name. A message sent on arrival could carry none of them, and a separate
+    alarm for a row merely *waiting* to be analysed was removed the same day —
+    it said nothing a person could act on.
+
+    So the three post-analysis facts lead the message:
+
+      * **dropped or not** — expressed by the message existing at all, since a
+        dropped row rings neither bell
+      * **the person**, which the stack marks decide outright
+      * **the client's name**, when the reviews named one
+
+    **One message per job.** The verdict leads, so the notification preview
+    still names the job, its marks and its person, and the posting follows in
+    the same message. It was two until 2026-10-13, which meant one job buzzed
+    the phone twice.
+    """
     b = item.get("body", {})
     seq = item.get("seq")
+    client = b.get("client") if isinstance(b.get("client"), dict) else {}
 
-    # 1. title, what it pays, where to open it
-    head = ["<b>" + html.escape(b.get("title") or "Untitled job") + "</b>",
-            "Budget: " + html.escape(str(b.get("budget") or "not specified"))]
+    head = ["<b>" + html.escape(b.get("title") or "Untitled job") + "</b>"]
+    stack = [x for x in (item.get("stack") or []) if x]
+    # The verdict, in one line: the marks and who they chose. Falls back to
+    # deriving the person so the message is right even for a row analysed
+    # before the person was recorded on it.
+    person = item.get("person") or person_for_stack(stack)
+    verdict = []
+    if stack:
+        verdict.append("Stack: " + ", ".join(stack))
+    if person:
+        verdict.append("Person: " + person)
+    if verdict:
+        head.append(html.escape(" \u00b7 ".join(verdict)))
+    head.append("Budget: " + html.escape(str(b.get("budget") or "not specified")))
+    bits = []
+    for label, key in (("Rank", "rank"), ("Location", "location")):
+        value = client.get(key) or b.get("client" + key[0].upper() + key[1:])
+        if value:
+            bits.append(f"{label}: {value}")
+    if client.get("paymentVerified") or b.get("clientPaymentVerified"):
+        bits.append("Payment verified")
+    if bits:
+        head.append(html.escape(" \u00b7 ".join(str(x) for x in bits)))
+    if item.get("client_name"):
+        head.append("Client: " + html.escape(item["client_name"]))
     url = b.get("upworkUrl") or b.get("url")
     if url:
         head.append(html.escape(url))
-    ok = telegram_send("\n".join(head), f"seq {seq} (1/2 headline)")
 
-    # 2. the posting itself, nothing around it
+    # One message per job, not two. It used to send the headline and the
+    # description separately so each read cleanly on its own; that is two
+    # notifications for one job, which the user asked to merge on 2026-10-13.
+    # The verdict still comes first, so the notification preview is unchanged.
+    headline = "\n".join(head)
     desc = (b.get("description") or "").strip()
     if desc:
-        if len(desc) > 3900:            # Telegram caps a message at 4096
-            desc = desc[:3900].rstrip() + "\n\n[...truncated, full text is in the queue]"
-        second = html.escape(desc)
+        # Telegram caps a message at 4096 characters and HTML-escaping only ever
+        # makes text longer, so the budget is measured on the escaped result
+        # rather than on the raw description.
+        room = 3900 - len(headline)
+        body = html.escape(desc)
+        if len(body) > room:
+            cut = html.escape(desc[:max(room, 200)]).rstrip()
+            body = cut + "\n\n[...truncated, full text is in the queue]"
+        text = headline + "\n\n" + body
     else:
-        second = "<i>This post arrived with no description.</i>"
-    ok = telegram_send(second, f"seq {seq} (2/2 description)") and ok
-    return ok
+        text = headline + "\n\n<i>This post arrived with no description.</i>"
+    return telegram_jobs_send(text, f"seq {seq}")
+
+
+def queue_should_tell_hungry(item):
+    """True when this analysed row is one Hungry should hear about.
+
+    Two tests and no others, per the instruction of 2026-10-13: the job came
+    from the general vollna search, and it was not dropped. Announced once, so
+    a second POST of the same analysis does not ring the phone again; a
+    deliberate re-analysis clears the flag and may announce afresh.
+    """
+    if str((item.get("body") or {}).get("source") or "") != "search":
+        return False
+    if item.get("dropped"):
+        return False
+    return not item.get("notified_jobs")
 
 
 def _jst_wall_to_epoch(wall):
@@ -529,6 +645,10 @@ def boost_check_loop():
             _boost_check_once()
         except Exception as exc:
             print(f"  boost check failed: {exc}", flush=True)
+        try:
+            _write_check_once()
+        except Exception as exc:
+            print(f"  write check failed: {exc}", flush=True)
         time.sleep(30)
 
 
@@ -555,6 +675,104 @@ def _boost_check_once():
             save_job(job)
         telegram_boost_due(job)
         print(f"  boost telegram sent for job {job['id']}", flush=True)
+
+
+# How long a write may take before the phone is told it is dragging. Measured
+# from the moment writing was triggered, which is when the job was created:
+# pressing "Write proposal" on a queue row creates it, and so does acting on a
+# `bid` decision from the general vollna search. Those are the only two ways a
+# write ever starts, so job["created"] is the start of the clock in both.
+WRITE_SLOW_AFTER = 8 * 60
+
+
+def telegram_write_slow(job):
+    """Taking longer than usual. Not a failure: the write may still land."""
+    mins = int((time.time() - job.get("created", time.time())) // 60)
+    lines = ["<b>Still writing</b>",
+             html.escape(job.get("title") or job["id"]),
+             f"{mins} minutes since writing started, longer than usual.",
+             f"Status: {html.escape(str(job.get('status') or 'unknown'))}"]
+    if job.get("awaiting_github"):
+        lines.append("Held at the github gate, waiting for a reply.")
+    if job.get("url"):
+        lines.append(html.escape(job["url"]))
+    return telegram_send("\n".join(lines), f"job {job['id']} slow")
+
+
+def telegram_write_failed(job, reason=""):
+    """Something came back for this job but there was no proposal in it."""
+    lines = ["<b>Failed to write proposal</b>",
+             html.escape(job.get("title") or job["id"])]
+    if reason:
+        lines.append(html.escape(reason))
+    lines.append(f"Status: {html.escape(str(job.get('status') or 'unknown'))}")
+    if job.get("url"):
+        lines.append(html.escape(job["url"]))
+    return telegram_send("\n".join(lines), f"job {job['id']} failed")
+
+
+def _write_check_once():
+    """Two things the phone should hear about an unfinished write.
+
+    A write is triggered one of two ways and nothing else: a person presses
+    "Write proposal" on a queue row, or a `bid` decision on an undropped job
+    from the general vollna search is acted on. Both create the job, so the
+    clock starts at job["created"].
+
+    Before this, a job could be created and simply sit: the two that stalled on
+    2026-10-13 were queued for over an hour and the phone said nothing either
+    way, because the only proposal alarm fired on a *finished* draft. Silence
+    read exactly like success.
+    """
+    now = time.time()
+    slow, failed = [], []
+    with JOBS_LOCK:
+        for job in JOBS.values():
+            # A refusal is not a failed write, and a dropped row rings neither
+            # bell by design. Cancelled is a person's own decision.
+            if job.get("dropped") or job.get("status") == "cancelled":
+                continue
+            has_text = bool(str(job.get("proposal") or "").strip())
+            # A /result that carried no proposal text marked the job on its
+            # way out. That is the writer reporting back empty, which is the
+            # clearest failure there is, so it rings ahead of the slow alarm.
+            if job.get("write_error") and not job.get("notified_failed"):
+                failed.append((job, str(job["write_error"])))
+                continue
+            # Something reached the panel for this job but carried no proposal.
+            # /result refuses an empty one outright, so a done job with nothing
+            # in it means the state was reached some other way: a crash between
+            # the status flip and the save, or a hand-edited record.
+            if job.get("status") == "done" and not has_text:
+                if not job.get("notified_failed"):
+                    failed.append((job, "the job finished with an empty proposal"))
+                continue
+            if has_text:
+                continue
+            if (now - job.get("created", now) > WRITE_SLOW_AFTER
+                    and not job.get("notified_slow")):
+                slow.append(job)
+    # Flags set before sending, so a slow Telegram cannot double-fire when the
+    # next tick overlaps this one. Same reason as the boost alarm.
+    for job, reason in failed:
+        with JOBS_LOCK:
+            job["notified_failed"] = True
+            save_job(job)
+        if job_was_dropped(job["id"]):
+            print(f"  telegram skipped: job {job['id']} was dropped", flush=True)
+            continue
+        telegram_write_failed(job, reason)
+        print(f"  write-failed telegram sent for job {job['id']}", flush=True)
+    for job in slow:
+        with JOBS_LOCK:
+            job["notified_slow"] = True
+            save_job(job)
+        if job_was_dropped(job["id"]):
+            print(f"  telegram skipped: job {job['id']} was dropped", flush=True)
+            continue
+        telegram_write_slow(job)
+        print(f"  write-slow telegram sent for job {job['id']} "
+              f"({int((now - job.get('created', now)) // 60)} min)", flush=True)
 
 
 def telegram_proposal_done(job):
@@ -698,6 +916,110 @@ def _normalise_job_body(body):
     return out
 
 
+# The marks the analyzer may put on a job, per analyzer-rule.md step 1.
+STACK_MARKS = ("Data", "AI", "ML", "Full", "Crypto")
+
+
+def person_for_stack(stack):
+    """The person these marks choose, or "" when there are no marks.
+
+    Two rules, both from the user on 2026-10-13, and `Crypto` is checked first:
+
+      1. **`Crypto` present is Zachary**, unconditionally. Cryptocurrency and
+         blockchain work is his whatever else the job also wants.
+      2. Otherwise **`Data` present and `AI` absent is Zachary**; everything
+         else is Connor. Data-led work is his, and the moment a job wants AI it
+         is Connor's — so `Data` + `AI` is Connor, and the `AI` mark decides it.
+
+    Rule 1 takes precedence, so `Crypto` + `AI` is Zachary even though `AI`
+    would otherwise send it to Connor. That is the one place the two rules
+    disagree, and it is resolved this way because the crypto instruction was
+    given as a flat assignment with no exception attached to it.
+
+    Rule 2 was first written as the mark sets enumerated, from the three the
+    instruction named; `Data`+`ML`+`Full` was missing and went to Connor, which
+    the user corrected the same day. It is a predicate now, because that is the
+    actual rule and a predicate cannot drop a case.
+
+    No marks means the row was dropped, and a dropped row is never written, so
+    it has no person. Anything else resolves, so the analyzer never has to
+    guess and the choice cannot drift between one job and the next.
+    """
+    marks = {m for m in (stack or []) if m in STACK_MARKS}
+    if not marks:
+        return ""
+    if "Crypto" in marks:
+        return "Zachary"
+    return "Zachary" if ("Data" in marks and "AI" not in marks) else "Connor"
+
+
+WH_HEADER = re.compile(r"^Work history \((\d+) past contracts?\):\s*$", re.M)
+WH_ENTRY = re.compile(r"^(in progress|#(\d+))\s+(.*)$")
+WH_FEEDBACK = re.compile(r"^to (freelancer|client)\s+([\d.]+):\s*(.*)$")
+
+
+def parse_work_history(description):
+    """The client's past contracts, which arrive inside the description text.
+
+    The search feed appends them under "Work history (N past contracts):"
+    rather than sending them as fields, which is why nothing read them before.
+    Each entry is a status line, then one line of terms, then up to two lines
+    of feedback:
+
+        #14 Consulting Support
+        Feb 2026 - Aug 2026 | 5hrs | $23.63/hr | billed $118.13
+        to freelancer 5: (no text)
+        to client 5: One of the best employers to work for!
+
+    "in progress" marks a live contract, "#N" a finished one. Any of the terms
+    can be "?" where Upwork does not show it and feedback text can be
+    "(no text)", so every field here is allowed to come back empty.
+
+    Returns None when there is no work-history section at all, which is a
+    different thing from a client whose section says zero contracts.
+    """
+    text = _as_text(description)
+    m = WH_HEADER.search(text)
+    if not m:
+        return None
+    entries, cur = [], None
+
+    for raw in text[m.end():].splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        hit = WH_ENTRY.match(line)
+        if hit:
+            if cur:
+                entries.append(cur)
+            cur = {"status": "in progress" if hit.group(1) == "in progress" else "finished",
+                   "index": int(hit.group(2)) if hit.group(2) else None,
+                   "name": hit.group(3).strip(),
+                   "period": "", "hours": "", "rate": "", "billed": "",
+                   "to_freelancer": None, "to_client": None}
+            continue
+        if cur is None:
+            break                   # past the section: another block has begun
+        fb = WH_FEEDBACK.match(line)
+        if fb:
+            body = fb.group(3).strip()
+            side = "to_freelancer" if fb.group(1) == "freelancer" else "to_client"
+            cur[side] = {"score": fb.group(2),
+                         "text": "" if body == "(no text)" else body}
+            continue
+        if "|" in line:
+            # Read by position, because a "?" gives nothing to recognise it by.
+            parts = [p.strip() for p in line.split("|")] + ["", "", "", ""]
+            cur["period"], cur["hours"], cur["rate"] = parts[0], parts[1], parts[2]
+            billed = parts[3]
+            cur["billed"] = billed[6:].strip() if billed.lower().startswith("billed") else billed
+            continue
+        cur["name"] = f"{cur['name']} {line}".strip()   # a name that wrapped
+    if cur:
+        entries.append(cur)
+    return {"count": int(m.group(1)), "entries": entries}
+
+
 def parse_labelled_body(text):
     """general-vollna-search posts a job as labelled text, not as fields.
 
@@ -706,11 +1028,9 @@ def parse_labelled_body(text):
     it never arrived as a job. This turns the labels back into the producer's
     own key names, so _normalise_job_body maps them like any other row of its.
 
-    Mirrors parse_labelled_text in proposal_bridge.py. Kept separate on purpose:
-    the two processes are deployed independently and neither should import the
-    other. The difference is that the verdict is preserved here, because the
-    queue has columns for it, while the bridge drops it so that it cannot be
-    read as the client's words in a proposal.
+    The verdict is preserved here, because the queue row has columns for it.
+    queue_jd then leaves it out again when it builds the job description, so
+    the decision reaches the queue but never the proposal.
     """
     labels = {
         "job title": "Job title", "title": "Job title",
@@ -762,6 +1082,141 @@ def _looks_like_a_job(body):
     )
 
 
+# What the relay says this project is, re-learned on every poll. Deliberately
+# in memory and not on disk: /messages reports the worker id and the channel of
+# every message it hands over, so a restart knows all of this again inside one
+# poll, and there is no state file to go stale or to leak into a public repo.
+RELAY_STATE = {
+    "worker_id": "",        # the identity the relay allocated, from /messages
+    "channels": {},         # channel -> {"seen": n, "last": epoch}
+    "last_poll": None,      # a successful /messages, whether or not it carried anything
+    "last_error": "",
+    "notices": 0,           # how many the relay has sent this project
+}
+RELAY_STATE_LOCK = threading.Lock()
+
+
+def relay_seed_channels():
+    """Seed the channel map from stored history, at boot.
+
+    The relay exposes no way to list the channels a worker is allocated — a
+    channel is only ever learned from a message arriving on it. Without this,
+    /api/relay/status reads an empty list after every restart until the next
+    job lands, which looks like "allocated nothing" rather than "nothing has
+    arrived yet". The queue rows and the report threads both record the channel
+    they came in on, so the answer is already on disk.
+    """
+    seen = {}
+    for folder, pattern in ((QUEUE_DIR, "*.json"), (THREADS_DIR, "*.json")):
+        if not folder.is_dir():
+            continue
+        for f in folder.glob(pattern):
+            try:
+                row = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            ch = str(row.get("channel") or "")
+            if not ch or ch == "pasted":      # a paste never came off the relay
+                continue
+            got = seen.setdefault(ch, {"seen": 0, "last": None})
+            got["seen"] += 1
+            ts = row.get("ts") or row.get("created")
+            if isinstance(ts, (int, float)):
+                got["last"] = max(got["last"] or 0, ts)
+    if seen:
+        with RELAY_STATE_LOCK:
+            for ch, row in seen.items():
+                RELAY_STATE["channels"].setdefault(ch, row)
+        print(f"  relay channels seen before: {', '.join(sorted(seen))}", flush=True)
+
+
+def relay_note_poll(payload):
+    """Record what a successful poll told us about ourselves.
+
+    The relay answers /messages with the worker id it knows us by and, when it
+    has something to say to this project rather than work to give it, a
+    `notices` array. Both used to be dropped on the floor: relay_pull read
+    `messages` and nothing else, so the project could not say which channel it
+    was allocated and never heard a word the relay addressed to it.
+    """
+    with RELAY_STATE_LOCK:
+        if payload.get("worker_id"):
+            RELAY_STATE["worker_id"] = str(payload["worker_id"])
+        RELAY_STATE["last_poll"] = time.time()
+        RELAY_STATE["last_error"] = ""
+        for msg in payload.get("messages", []):
+            ch = str(msg.get("channel") or "")
+            if not ch:
+                continue
+            row = RELAY_STATE["channels"].setdefault(ch, {"seen": 0, "last": None})
+            row["seen"] += 1
+            row["last"] = time.time()
+
+
+def relay_take_notices(payload):
+    """A notice is the relay talking to this project. File each one as a thread.
+
+    That is what the Report page already is, so a notice arrives the same way
+    an instruction message does and is read in the same place. Kept defensive
+    about the shape: the array has only ever come back empty here, so a notice
+    may be a string or an object and either must survive.
+    """
+    for notice in payload.get("notices", []) or []:
+        if isinstance(notice, dict):
+            title = (notice.get("title") or notice.get("subject")
+                     or notice.get("type") or "Notice from the relay")
+            text = (notice.get("text") or notice.get("message")
+                    or notice.get("body") or json.dumps(notice, indent=2))
+            channel = str(notice.get("channel") or "")
+            sender = str(notice.get("sender") or "relay")
+        else:
+            title, text, channel, sender = "Notice from the relay", str(notice), "", "relay"
+        t = new_thread("instruction", str(title), channel=channel,
+                       sender=sender, text=str(text), role="server")
+        with RELAY_STATE_LOCK:
+            RELAY_STATE["notices"] += 1
+        print(f"  relay notice -> thread {t['id']}: {t['title'][:46]!r}", flush=True)
+
+
+def relay_enrol(label=""):
+    """Enrol this machine with the relay as a worker.
+
+    A one-time handshake whose result lives on the relay, keyed to the worker
+    id and token in .env. It used to be the only thing proposal_bridge.py did
+    that was worth keeping, and when the bridge was deleted on 2026-10-13 the
+    project was left with no way to enrol at all: fine while this machine
+    stayed enrolled, useless the moment the token rotated, the worker was
+    removed in the console, or the repo was cloned somewhere new.
+
+    This enrols and nothing else. It cannot create a job, which is the whole
+    reason the bridge went.
+    """
+    env = read_env()
+    worker = env.get("RELAY_WORKER", "").strip()
+    token = env.get("RELAY_TOKEN", "").strip()
+    if not worker or not token:
+        raise RuntimeError("no RELAY_WORKER or RELAY_TOKEN in .env")
+    # The relay's /enrol takes `name` and requires it. proposal_bridge.py sent
+    # {worker_id, token, label} and would now be rejected 422 — its enrol code
+    # had gone stale against the live API some time before it was deleted, so
+    # this is the current shape rather than the one it used. The worker id and
+    # token still travel: the relay ignores extras it does not know, and if it
+    # ever honours them again this asks for the identity .env already holds.
+    body = {"name": worker, "worker_id": worker, "token": token,
+            "label": label or f"{project_name()} (local)"}
+    try:
+        out = relay_call("POST", "/enrol", body)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        if exc.code == 409:
+            # Already enrolled is the normal answer on a machine that works.
+            return {"status": "already", "worker_id": worker, "detail": detail}
+        raise RuntimeError(f"relay refused the enrolment: {exc.code} {detail}") from exc
+    out = out if isinstance(out, dict) else {}
+    return {"status": out.get("status") or "sent", "worker_id": worker,
+            "message": out.get("message") or "", "detail": ""}
+
+
 def relay_pull(wait=0.0):
     """Take what the relay is holding, keep everything that looks like a job,
     acknowledge the lot.
@@ -775,6 +1230,11 @@ def relay_pull(wait=0.0):
     time instead of vanishing.
     """
     payload = relay_call("GET", f"/messages?wait={wait}", timeout=wait + 20)
+    # Who the relay says we are, which channels it is handing us, and anything
+    # it has to say to this project. Done before the messages are walked so a
+    # failure further down still leaves the identity recorded.
+    relay_note_poll(payload)
+    relay_take_notices(payload)
     kept = []
     for msg in payload.get("messages", []):
         raw_body = msg.get("body")
@@ -822,15 +1282,24 @@ def relay_pull(wait=0.0):
             print(f"  relay instruction seq {msg['seq']} -> thread {t['id']}: "
                   f"{t['title'][:46]!r}", flush=True)
         relay_call("POST", "/ack", {"channel": msg["channel"], "seq": msg["seq"]})
-    # New relay jobs are deliberately not announced on Telegram. The queue in
-    # the UI already shows them, and the phone message was noise. Disabled on
-    # the user's instruction, 2026-09-24. telegram_new_job() is kept so this is
-    # one line to put back; the boost and proposal-done messages still send.
+    # Arrival is still not announced: the queue in the UI already shows a new
+    # row, and the phone message was noise. Disabled on the user's instruction
+    # of 2026-09-24, and telegram_new_job() was deleted on 2026-10-13 — it had
+    # been dead for three weeks and, because it called telegram_send, anyone
+    # putting it back would have pushed job info down Night Fury. What Hungry
+    # gets instead is the *analysed* job, from telegram_job_analysed, which
+    # fires once the verdict exists rather than the moment a row lands.
     return len(kept)
 
 
 def queue_items():
-    """Newest first. Each row is what the UI needs and nothing more."""
+    """Newest first. Each row is what the UI needs and nothing more.
+
+    **A dropped row is not here to be filtered out.** It is deleted the moment
+    the analysis drops it, on the user's instruction of 2026-10-13: hiding it
+    was the first attempt and left the directory growing with rows nobody would
+    ever look at again.
+    """
     out = []
     if not QUEUE_DIR.is_dir():
         return out
@@ -857,7 +1326,16 @@ def queue_items():
             "sender": item.get("sender", ""),
             "analysis": item.get("analysis", ""),
             "analysis_wanted": bool(item.get("analysis_wanted")),
+            # Set while a session actually holds this row, so the card can say
+            # "analysing…" only when that is true and "awaiting analysis"
+            # otherwise. Without it the two states looked identical.
+            "analysing_since": item.get("analysing_since"),
             "has_jd": bool(_as_text(b.get("description")).strip()),
+            # Just the count, so the row stays small. The entries themselves are
+            # fetched per item when the button is pressed.
+            "work_history": (parse_work_history(b.get("description")) or {}).get("count"),
+            "stack": item.get("stack") or [],
+            "dropped": bool(item.get("dropped")),
             "client_name": _client_name(item.get("client_name")) or _client_name(client.get("name")),
             "used": bool(item.get("used")),
             "written_at": item.get("written_at"),
@@ -893,6 +1371,57 @@ def queue_mark_written(job_id):
     return None
 
 
+def job_was_dropped(job_id):
+    """True when this job's queue row was marked dropped by the analyser.
+
+    A dropped row is one no engineer here can write: the analysis found no
+    Data, AI, ML, Full or Crypto work in it. The writer still posts a /result saying
+    so, because the UI needs something in the box, but that is a refusal and
+    not a finished proposal, so no alarm goes out for it.
+    """
+    if not job_id or not QUEUE_DIR.is_dir():
+        return False
+    for f in sorted(QUEUE_DIR.glob("*.json")):
+        try:
+            item = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if item.get("job_id") == job_id:
+            return bool(item.get("dropped"))
+    return False
+
+
+# A pasted row needs a seq of its own, and it must never collide with a relay
+# message's. Relay seqs count up from 1 and are in the hundreds; pasted rows
+# count up from here, so the two ranges cannot meet.
+PASTED_SEQ_BASE = 900000
+
+
+def next_pasted_seq():
+    highest = PASTED_SEQ_BASE
+    if QUEUE_DIR.is_dir():
+        for f in QUEUE_DIR.glob("*.json"):
+            try:
+                seq = int(f.stem)
+            except ValueError:
+                continue
+            if seq >= PASTED_SEQ_BASE:
+                highest = max(highest, seq + 1)
+    return highest
+
+
+def queue_delete(seq):
+    """Remove one row from the queue. True if it was there."""
+    f = QUEUE_DIR / f"{int(seq):06d}.json"
+    if not f.is_file():
+        return False
+    try:
+        f.unlink()
+        return True
+    except OSError:
+        return False
+
+
 def queue_get(seq):
     f = QUEUE_DIR / f"{int(seq):06d}.json"
     if not f.is_file():
@@ -900,11 +1429,71 @@ def queue_get(seq):
     return json.loads(f.read_text(encoding="utf-8"))
 
 
+# Field order for the job description built out of a relay row. The title goes
+# first because queue_jd's first line becomes the job's title; then the posting
+# itself, then the terms, then who is offering them.
+JD_KEYS = ("description", "jobDescription", "jd", "snippet", "summary", "details", "text")
+JD_FACTS = [("Budget", "budget"), ("Published", "published"), ("Posted", "posted")]
+JD_CLIENT_FIELDS = [
+    ("Rank", "rank"), ("Rating", "rating"), ("Payment verified", "paymentVerified"),
+    ("Location", "location"), ("Reviews", "reviews"), ("Jobs posted", "jobsPosted"),
+    ("Hire rate", "hireRate"), ("Spent", "spent"), ("Registered", "registered"),
+]
+
+
 def queue_jd(item):
-    """The job description the writer works from, built by the bridge's own
-    formatter so the relay path and the manual path agree."""
-    from proposal_bridge import as_jd
-    return as_jd(item.get("body", {}))
+    """The job description the writer works from, built out of a queue row.
+
+    Lived in proposal_bridge.py until the bridge was removed on 2026-10-13. It
+    is kept here because the queue is now the only way a job is created, so
+    this is the only formatter: every job description the writer ever sees is
+    built by this function.
+
+    The body is already a dict by the time a row is saved — relay_pull runs
+    parse_labelled_body and _normalise_job_body on the way in — so the dict
+    path below is the real one. The verdict is deliberately not printed: the
+    producer's own bid decision belongs to the queue row, and inside the job
+    description it would read as the client's words.
+    """
+    body = item.get("body", {})
+    if isinstance(body, str):
+        return body.strip()
+    # A pasted row is handed back exactly as it was typed. Clients plant
+    # application instructions in the posting ("start your proposal with the
+    # word banana"), so prepending a derived title or appending a Link line
+    # would move the first line and lose the job. The link is a field on the
+    # row, and reaches the job through data["url"] instead.
+    if isinstance(body, dict) and body.get("pasted"):
+        return str(body.get("description") or "").strip()
+    if not isinstance(body, dict):
+        return json.dumps(body, indent=2, ensure_ascii=False)
+
+    lines = [str(body.get("title") or "Untitled job").strip()]
+    for key in JD_KEYS:
+        value = body.get(key)
+        if isinstance(value, list):      # that producer sends it as paragraphs
+            value = "\n\n".join(str(v).strip() for v in value if str(v).strip())
+        if isinstance(value, str) and value.strip():
+            lines += ["", value.strip()]
+            break
+
+    terms = [f"{label}: {body[key]}" for label, key in JD_FACTS if body.get(key)]
+    link = body.get("upworkUrl") or body.get("url") or body.get("link")
+    if link:
+        terms.append(f"Link: {link}")
+    if terms:
+        lines += ["", *terms]
+
+    client = body.get("client") if isinstance(body.get("client"), dict) else {}
+    facts = []
+    for label, key in JD_CLIENT_FIELDS:
+        flat = body.get("client" + key[0].upper() + key[1:])
+        value = client.get(key, flat)
+        if value not in (None, ""):
+            facts.append(f"{label}: {value}")
+    if facts:
+        lines += ["", "Client:", *[f"- {f}" for f in facts]]
+    return "\n".join(lines)
 
 
 def pull_loop():
@@ -913,6 +1502,8 @@ def pull_loop():
         try:
             relay_pull(wait=25)
         except Exception as exc:
+            with RELAY_STATE_LOCK:
+                RELAY_STATE["last_error"] = str(exc)[:300]
             print(f"  relay pull failed: {exc}", flush=True)
             time.sleep(15)          # only back off when something is wrong
 
@@ -934,7 +1525,9 @@ def export_proposal(job):
     when = datetime.datetime.fromtimestamp(job.get("created", time.time()), tz=JST)
     name = f"{when:%Y-%m-%d}_{slugify(job.get('title') or job['id'])}_{job.get('person','')}" \
            f"_{job['id']}.md"
-    # A retitled job would otherwise leave its old file behind.
+    # A retitled job would otherwise leave its old file behind. This glob stays
+    # narrow on purpose: it runs on every save, and widening it to *_<id>*.md
+    # would delete a translation every time the proposal was re-exported.
     for stale in PROPOSALS.glob(f"*_{job['id']}.md"):
         if stale.name != name:
             stale.unlink()
@@ -944,8 +1537,10 @@ def export_proposal(job):
     lines = [
         f"# {job.get('title') or job['id']}",
         "",
-        f"- **Person:** {job.get('person','')}",
-        f"- **Guide:** {job.get('guide','')}",
+        f"- **Person:** {job.get('person','')}"
+        f"{' (chosen by hand)' if job.get('person_mode') == 'manual' else ' (decided per job)'}",
+        f"- **Guide:** {job.get('guide','')}"
+        f"{' (chosen by hand)' if job.get('guide_mode') == 'manual' else ' (decided per job)'}",
         f"- **Client:** {job.get('client') or '(not given)'}",
         f"- **Job URL:** {job.get('url') or '(not saved)'}",
         f"- **Written:** {when:%Y-%m-%d %H:%M} JST",
@@ -993,8 +1588,14 @@ def export_proposal(job):
 
 
 def remove_export(job):
-    """Only for an explicit delete. The timed purge deliberately leaves these."""
-    for f in PROPOSALS.glob(f"*_{job['id']}.md"):
+    """Only for an explicit delete. The timed purge deliberately leaves these.
+
+    The glob is deliberately wider than the one export_proposal writes: a job
+    can have more files than its own export, such as a translation saved as
+    ..._<id>_ES.md. Matching on the id alone takes those with it, so a deleted
+    row cannot leave a copy of its proposal behind in the archive.
+    """
+    for f in PROPOSALS.glob(f"*_{job['id']}*.md"):
         f.unlink()
 
 
@@ -1023,10 +1624,10 @@ def list_guides():
 
 def list_people():
     out = []
-    for p in sorted(ROOT.glob("*.md")):
+    for p in sorted(PROFILES.glob("*.md")):
         if p.name in NOT_A_PERSON or "-" in p.stem:
             continue
-        out.append({"id": p.stem, "name": title_of(p, p.stem), "file": p.name})
+        out.append({"id": p.stem, "name": title_of(p, p.stem), "file": f"profiles/{p.name}"})
     return out
 
 
@@ -1038,7 +1639,14 @@ def read_guide(guide_id: str) -> str:
 
 
 def read_person(person_id: str) -> str:
-    p = ROOT / f"{person_id}.md"
+    # The id arrives from the browser, so it must not be able to climb out of
+    # profiles/ and read the server's own files.
+    # A hyphen means supporting material rather than a person, which is the
+    # same rule list_people() applies: connor-github.md is read by hand when a
+    # Connor proposal needs it, never built into a prompt as though it were him.
+    if "/" in person_id or "\\" in person_id or person_id.startswith(".") or "-" in person_id:
+        raise FileNotFoundError(f"no person profile named {person_id}")
+    p = PROFILES / f"{person_id}.md"
     if not p.is_file() or p.name in NOT_A_PERSON:
         raise FileNotFoundError(f"no person profile named {person_id}")
     return p.read_text(encoding="utf-8")
@@ -1163,6 +1771,28 @@ class Handler(BaseHTTPRequestHandler):
                     "model": MODEL,
                 },
             )
+        if path == "/api/relay/status":
+            # What the relay allocated this project, read off the live poll
+            # rather than a stored file. "channels" is what it has actually
+            # handed us, so an empty list means nothing has arrived yet, not
+            # that nothing is allocated.
+            with RELAY_STATE_LOCK:
+                st = {
+                    "worker_id": RELAY_STATE["worker_id"],
+                    "channels": [
+                        {"channel": ch, "seen": v["seen"], "last": v["last"]}
+                        for ch, v in sorted(RELAY_STATE["channels"].items())
+                    ],
+                    "last_poll": RELAY_STATE["last_poll"],
+                    "last_error": RELAY_STATE["last_error"],
+                    "notices": RELAY_STATE["notices"],
+                }
+            env = read_env()
+            st["configured_worker"] = env.get("RELAY_WORKER", "")
+            st["relay"] = env.get("RELAY_URL", "")
+            st["connected"] = bool(st["worker_id"]) and not st["last_error"]
+            return self._send(200, st)
+
         if path == "/api/identity":
             return self._send(200, load_identity())
 
@@ -1180,6 +1810,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": "no such thread"})
             return self._send(200, t)
 
+        # The client's past contracts, on demand. Kept out of /api/queue because
+        # one row can carry fifty of them and the queue is polled constantly.
+        m = re.fullmatch(r"/api/queue/(\d+)/history", path)
+        if m:
+            seq = int(m.group(1))
+            f = QUEUE_DIR / f"{seq:06d}.json"
+            if not f.is_file():
+                return self._send(404, {"error": "no such queue row"})
+            try:
+                body = json.loads(f.read_text(encoding="utf-8")).get("body") or {}
+            except (OSError, ValueError) as exc:
+                return self._send(500, {"error": f"could not read row: {exc}"})
+            wh = parse_work_history(body.get("description"))
+            if wh is None:
+                return self._send(200, {"seq": seq, "count": None, "entries": [],
+                                        "note": "this job carries no work-history section"})
+            return self._send(200, {"seq": seq, **wh})
+
+        if path == "/api/work/inflight":
+            # One thing at a time. A session asks this before starting
+            # anything; `busy` true means finish that first.
+            busy = work_in_flight()
+            return self._send(200, {"busy": bool(busy), "work": busy})
+
         if path == "/api/queue/analyzing":
             return self._send(200, {"seqs": [
                 r["seq"] for r in queue_items()
@@ -1194,7 +1848,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"jobs": [
                 {k: j.get(k) for k in
                  ("id", "guide", "person", "status", "note", "created", "title", "images",
-                  "url", "boost", "when", "done", "awaiting_github")}
+                  "url", "boost", "when", "done", "awaiting_github", "source", "dropped",
+                  "guide_mode", "person_mode")}
                 for j in rows[:200]
             ]})
         if path.startswith("/api/messages/since"):
@@ -1287,12 +1942,31 @@ class Handler(BaseHTTPRequestHandler):
                         # A result with no proposal used to mark the job done and
                         # empty, which reads as "written" in the UI and hands the
                         # user nothing. Refuse it and leave the job claimable.
+                        #
+                        # It is also the clearest sign a write went wrong: the
+                        # writer came back for this job and had nothing. Marked
+                        # here rather than sent here, because a Telegram round
+                        # trip must never happen while JOBS_LOCK is held; the
+                        # watcher reads the mark on its next tick and sends it
+                        # from outside the lock, within 30 seconds.
+                        job["write_error"] = "the writer returned no proposal text"
+                        save_job(job)
                         return self._send(400, {
                             "error": "no proposal in the result: send the text in "
                                      "'proposal', or POST /note and /questions instead",
                             "status": job["status"]})
                     job["proposal"] = text
                     job["status"] = "done"
+                    # A retry that works clears the failure, so a job that came
+                    # back empty once and was then written does not keep a mark
+                    # saying it failed.
+                    job.pop("write_error", None)
+                    # The writer can say outright that this was a refusal rather
+                    # than a proposal. Cheaper and surer than inferring it from
+                    # the queue row, which only carries a job id once the row has
+                    # been pressed into a job.
+                    if data.get("dropped"):
+                        job["dropped"] = True
                     written = queue_mark_written(job["id"])
                     if written is not None:
                         print(f"  queue seq {written} written, row kept for a rerun",
@@ -1319,7 +1993,11 @@ class Handler(BaseHTTPRequestHandler):
             # Sent outside the lock: a Telegram round trip must not hold up
             # every other request, and the job is already stored by now.
             if finished is not None:
-                telegram_proposal_done(finished)
+                if finished.get("dropped") or job_was_dropped(finished["id"]):
+                    print(f"  telegram skipped: job {finished['id']} was dropped, "
+                          "not a finished proposal", flush=True)
+                else:
+                    telegram_proposal_done(finished)
             return self._send(200, {"ok": True})
 
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/await_github", path)
@@ -1492,6 +2170,59 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(502, {"error": str(exc)})
             return self._send(200, {"ok": True, **out})
 
+        if path == "/api/relay/enrol":
+            # Restores what went with proposal_bridge.py. Enrolment only: it
+            # reads the worker id and token out of .env, hands them to the
+            # relay, and can do nothing else. Safe to call when already
+            # enrolled, which answers "already".
+            try:
+                out = relay_enrol(str(data.get("label") or ""))
+            except RuntimeError as exc:
+                return self._send(502, {"error": str(exc)})
+            except Exception as exc:
+                return self._send(502, {"error": f"could not reach the relay: {exc}"})
+            print(f"  relay enrol: {out['status']} as {out['worker_id']}", flush=True)
+            return self._send(200, {"ok": True, **out})
+
+        if path == "/api/queue/paste":
+            # The only other way a job description gets in. /api/generate takes
+            # a queue seq and nothing else, so a hand-pasted post is made into
+            # a row here first and then generated from it like a relay job.
+            # One door for every job: the row is what carries the link, the
+            # title and the client through to the proposal and the archive.
+            text = str(data.get("jd") or "").strip()
+            if not text:
+                return self._send(400, {"error": "paste a job description first"})
+            seq = next_pasted_seq()
+            item = {
+                "seq": seq,
+                "channel": "pasted",
+                "sender": "pasted by hand",
+                "ts": time.time(),
+                "body": {
+                    # Marked so queue_jd hands the text back untouched.
+                    "pasted": True,
+                    "title": str(data.get("title") or "").strip() or derive_title(text),
+                    "description": text,
+                    "upworkUrl": str(data.get("url") or "").strip(),
+                    "source": "pasted",
+                },
+                "client_name": _client_name(data.get("client")),
+                # Recorded on the job too. Only "search" is ever written
+                # automatically, so this is inert as a trigger and useful as a
+                # label: the archive says the post was pasted, not fed in.
+                "source": "pasted",
+                "used": False,
+                # Only the general vollna search is analysed, per
+                # analyzer-rule.md. A person pasting a post has already judged it.
+                "analysis_wanted": False,
+                "analysis": "",
+            }
+            queue_save(item)
+            print(f"  pasted job queued as seq {seq}: "
+                  f"{item['body']['title'][:46]!r}", flush=True)
+            return self._send(200, {"ok": True, "seq": seq})
+
         if path == "/api/queue/refresh":
             try:
                 added = relay_pull()
@@ -1519,8 +2250,87 @@ class Handler(BaseHTTPRequestHandler):
             item["analysis"] = str(data.get("analysis") or "").strip()
             item["analysis_wanted"] = False
             item["analysed_at"] = time.time()
+            # The client's name can ride along, so the analyser does not need a
+            # second round trip to /meta for it. Speed is the point: triage runs
+            # on the fastest model and every avoidable HTTP hop is latency on a
+            # step that happens forty times a day. Absent means unchanged, so
+            # posting an analysis never wipes a name typed in by hand.
+            if "client_name" in data:
+                item["client_name"] = _client_name(data.get("client_name"))[:80]
+            # Work finished: the floor is free for the next row.
+            item.pop("analysing_since", None)
+            # The marks from step 1 of analyzer-rule.md. An empty list means no
+            # engineer here can do the work, which is what dropped means: the
+            # row is then deleted outright, since nothing here can do the work
+            # and it is not waiting on anybody. That makes the drop final: no
+            # redo can reverse it and the analysis text goes with the file, and
+            # nothing is sent to Telegram for it.
+            if "stack" in data:
+                item["stack"] = [s for s in (str(x).strip() for x in (data.get("stack") or []))
+                                 if s in STACK_MARKS]
+                item["dropped"] = not item["stack"]
+                # The marks decide the person, so it is settled here rather
+                # than being judged again when the job is created. A dropped
+                # row resolves to "" because it is never written.
+                item["person"] = person_for_stack(item["stack"])
+            # Hungry hears about it here, and this is the only place that
+            # sends job info. No lock is held in this handler — the queue is
+            # files, not JOBS — so the send is made directly rather than
+            # deferred, and telegram never raises.
+            tell = queue_should_tell_hungry(item)
+            if tell:
+                item["notified_jobs"] = True
+            if item.get("dropped"):
+                # Gone, not hidden. Nothing here can do the work, so the row has
+                # no further use and does not stay on disk. The trade is that
+                # the drop cannot be reversed with a redo and the reasoning goes
+                # with it: a wrong call means the post has to arrive again.
+                queue_delete(item["seq"])
+                print(f"  seq {item['seq']} dropped and removed from the queue", flush=True)
+                return self._send(200, {"ok": True, "stack": [], "dropped": True,
+                                        "removed": True, "announced": False})
             queue_save(item)
-            return self._send(200, {"ok": True})
+            if tell:
+                telegram_job_analysed(item)
+                print(f"  hungry told about seq {item['seq']}: "
+                      f"stack={item.get('stack')}", flush=True)
+            return self._send(200, {"ok": True, "stack": item.get("stack"),
+                                    "dropped": bool(item.get("dropped")),
+                                    "announced": bool(tell)})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/claim", path)
+        if m:
+            item = queue_get(m.group(1))
+            if not item:
+                return self._send(404, {"error": "no such queue item"})
+            if item.get("analysis"):
+                return self._send(409, {"error": "already analysed",
+                                        "analysis": item["analysis"]})
+            busy = work_in_flight()
+            if busy and not (busy.get("kind") == "analysis"
+                             and busy.get("seq") == item["seq"]):
+                # The whole point of the claim: the next piece of work does not
+                # start until this one is done.
+                return self._send(409, {"error": "something else is in flight; "
+                                                 "finish it before starting this",
+                                        "work": busy})
+            item["analysing_since"] = time.time()
+            queue_save(item)
+            print(f"  seq {item['seq']} claimed for analysis", flush=True)
+            return self._send(200, {"ok": True, "seq": item["seq"],
+                                    "analysing_since": item["analysing_since"]})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/release", path)
+        if m:
+            # Let go without having analysed it, so an abandoned claim does not
+            # block every later piece of work.
+            item = queue_get(m.group(1))
+            if not item:
+                return self._send(404, {"error": "no such queue item"})
+            item.pop("analysing_since", None)
+            queue_save(item)
+            print(f"  seq {item['seq']} released", flush=True)
+            return self._send(200, {"ok": True, "seq": item["seq"]})
 
         m = re.fullmatch(r"/api/queue/(\d+)/analyze", path)
         if m:
@@ -1530,6 +2340,10 @@ class Handler(BaseHTTPRequestHandler):
             item["analysis_wanted"] = True
             if data.get("redo"):
                 item["analysis"] = ""
+                # Asking for it again means the verdict may change, and a row
+                # that was dropped and is now workable is worth hearing about.
+                item.pop("notified_jobs", None)
+            item.pop("analysing_since", None)
             queue_save(item)
             return self._send(200, {"ok": True, "seq": item["seq"]})
 
@@ -1540,6 +2354,27 @@ class Handler(BaseHTTPRequestHandler):
             if existed:
                 f.unlink()
             return self._send(200, {"ok": True, "deleted": existed})
+
+        if path == "/api/queue/clear":
+            # Empty the queue in one call. Refresh only ever *pulls* from the
+            # relay, so before this the only way to clear a backlog was to
+            # delete rows one at a time: 51 of them went that way by hand on
+            # 2026-10-13, which is what prompted the button.
+            #
+            # Dropped rows are taken too. They are hidden from the list rather
+            # than deleted on arrival, so a clear is the thing that actually
+            # reclaims them.
+            removed = 0
+            if QUEUE_DIR.is_dir():
+                for f in sorted(QUEUE_DIR.glob("*.json")):
+                    try:
+                        f.unlink()
+                        removed += 1
+                    except OSError:
+                        pass
+            print(f"  queue cleared: {removed} row(s) removed", flush=True)
+            return self._send(200, {"ok": True, "removed": removed,
+                                    "queue": queue_items()})
 
         if path == "/api/jobs/clear":
             with JOBS_LOCK:
@@ -1712,6 +2547,29 @@ class Handler(BaseHTTPRequestHandler):
                 save_job(job)
             return self._send(200, {"ok": True, "guide": want, "was": was})
 
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/person", path)
+        if m:
+            # Same contract as the guide above: in auto the dropdown is only a
+            # default and the writer records whoever the post actually suits.
+            # This one must be posted *before* the repository search, since
+            # Connor's own pool is searched first and Zachary's is not, so the
+            # person decides what the search even is.
+            want = str(data.get("person") or "").strip()
+            if want not in {p["id"] for p in list_people()}:
+                return self._send(400, {"error": f"no person named {want!r}"})
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                if job.get("person_mode") == "manual":
+                    return self._send(409, {
+                        "error": "this job's person was chosen by hand; auto mode off",
+                        "person": job.get("person")})
+                was = job.get("person")
+                job["person"] = want
+                save_job(job)
+            return self._send(200, {"ok": True, "person": want, "was": was})
+
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/notes_reply", path)
         if m:
             with JOBS_LOCK:
@@ -1839,25 +2697,38 @@ class Handler(BaseHTTPRequestHandler):
 
         guide_id = (data.get("guide") or "").strip()
         person_id = (data.get("person") or "").strip()
-        jd = data.get("jd") or ""
 
-        # A job picked off the relay queue carries its own description, link
-        # and client name. The request only has to name the seq.
+        # Every job comes off a queue row, and there is no other way in. A row
+        # carries the posting, the Upwork link, the real title and the client
+        # name as fields, so the job gets all four; the raw-jd shape this used
+        # to accept carried only prose, which is how a job with no URL was
+        # created for every message that crossed the relay. A pasted
+        # description is queued first, by /api/queue/paste, and arrives here as
+        # a seq like any other. Removed 2026-10-13 with proposal_bridge.py.
         queued = None
-        if data.get("queue_seq") not in (None, ""):
-            queued = queue_get(data["queue_seq"])
-            if not queued:
-                return self._send(404, {"error": f"queue item {data['queue_seq']} is gone"})
-            jd = queue_jd(queued)
-            data = dict(data)
-            data["url"] = (queued.get("body", {}).get("upworkUrl")
-                           or queued.get("body", {}).get("url") or "")
-            data["client"] = queued.get("client_name", "")
-            data["title"] = (queued.get("body", {}).get("title") or "").strip()
+        if data.get("queue_seq") in (None, ""):
+            return self._send(400, {
+                "error": "a job is created from a queue row: send queue_seq. "
+                         "Paste one in with POST /api/queue/paste, which returns its seq",
+                "hint": "raw 'jd' is no longer accepted"})
+        queued = queue_get(data["queue_seq"])
+        if not queued:
+            return self._send(404, {"error": f"queue item {data['queue_seq']} is gone"})
+        jd = queue_jd(queued)
+        data = dict(data)
+        # An analysed row already decided the person from its stack marks, per
+        # analyzer-rule.md. In auto that decision wins over the dropdown, which
+        # is only ever a default; in manual the user's pick stands untouched.
+        if (data.get("person_mode") or "auto") != "manual" and queued.get("person"):
+            person_id = queued["person"]
+        data["url"] = (queued.get("body", {}).get("upworkUrl")
+                       or queued.get("body", {}).get("url") or "")
+        data["client"] = queued.get("client_name", "")
+        data["title"] = (queued.get("body", {}).get("title") or "").strip()
 
         if path in ("/api/prompt", "/api/generate"):
             if not jd.strip():
-                return self._send(400, {"error": "paste a job description first"})
+                return self._send(400, {"error": "that queue row has no job description in it"})
             try:
                 system, user = build_prompt(guide_id, person_id, jd, data.get("client") or "",
                                             data.get("screening") or "",
@@ -1873,11 +2744,22 @@ class Handler(BaseHTTPRequestHandler):
                               data.get("screening") or "", data.get("url") or "",
                               data.get("title") or "", data.get("notes") or "",
                               data.get("guide_mode") or "auto",
-                              data.get("country") or "")
+                              data.get("country") or "",
+                              data.get("person_mode") or "auto")
                 if queued:
                     queued["used"] = True
                     queued["job_id"] = job["id"]
                     queue_save(queued)
+                    # Carry the feed forward onto the job. Only a row from the
+                    # general vollna search is analysed, and only such a job may
+                    # be dropped rather than written: an alert or a hand-typed
+                    # job is the person asking for a proposal, so it gets one.
+                    # Without this the job has no memory of which feed it came
+                    # from and that distinction cannot be made after the fact.
+                    job["source"] = queued.get("source") or ""
+                    job["queue_seq"] = queued.get("seq")
+                    job["sender"] = queued.get("sender") or ""
+                    save_job(job)
                 return self._send(200, {"job": job["id"], "mode": "bridge"})
 
             try:
@@ -1899,14 +2781,23 @@ def main():
     load_threads()
     purge_old_jobs()          # catch up if the server was down at the boundary
     threading.Thread(target=purge_loop, daemon=True).start()
+    relay_seed_channels()
     threading.Thread(target=pull_loop, daemon=True).start()
     threading.Thread(target=boost_check_loop, daemon=True).start()
     if not (UI / "index.html").is_file():
         sys.exit("ui/index.html is missing")
+    # profiles/ is gitignored, so a fresh clone of this repo arrives without it
+    # and without anybody in it. Make the folder rather than listing no people
+    # and leaving the reason to be guessed at.
+    PROFILES.mkdir(exist_ok=True)
     mode = "API mode" if os.environ.get("ANTHROPIC_API_KEY") else "bridge mode (jobs go to Claude Code)"
     print(f"Proposal UI on http://localhost:{PORT}  [{mode}]")
     print(f"  guides: {', '.join(g['id'] for g in list_guides()) or 'none'}", flush=True)
-    print(f"  people: {', '.join(p['id'] for p in list_people()) or 'none'}", flush=True)
+    people = list_people()
+    print(f"  people: {', '.join(p['id'] for p in people) or 'none'}", flush=True)
+    if not people:
+        print("    no profiles yet: put one .md file per person in profiles/, "
+              "single-word name, e.g. profiles/Alex.md", flush=True)
     print(f"  jobs restored: {len(JOBS)}", flush=True)
     nxt = datetime.datetime.fromtimestamp(next_purge_epoch(), tz=JST)
     print(f"  history kept {RETENTION_DAYS} days, next purge {nxt:%Y-%m-%d %H:%M} JST", flush=True)

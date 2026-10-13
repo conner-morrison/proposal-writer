@@ -128,6 +128,56 @@ a sentence.
 back at them reads as surveillance rather than diligence. It changes the pitch; it does not become
 the pitch.
 
+# First pick the person
+
+**Two things are chosen per job, and this is the one that comes first.** The guide is decided
+after the repository search, because the choice turns on what the search returned. The person has
+to be decided *before* it, because **whose pool gets searched depends on who is bidding**: a
+Connor job searches `profiles/connor-work-pool.md` first and only falls through to public GitHub
+on a miss, while a Zachary job goes straight to the public search and the gate. Decide the person,
+then run the search described in `github-researcher.md`.
+
+**Only decide when the job says you may.** Every job carries `person_mode` alongside
+`guide_mode`. **`manual` means the user picked the person themselves and this section is
+skipped** — write for whoever they chose, even if the post looks like a better fit for somebody
+else. The server enforces it and will reject a person change on such a job. `auto` is where the
+test below applies.
+
+**An analysed row has already answered this, and that answer wins.** A job from the general
+vollna search carries stack marks, and the marks choose the person outright: **anything marked `Crypto` is
+Zachary, and otherwise `Data` present with no `AI` is Zachary** — so crypto work, `Data`,
+`Data`+`ML`, `Data`+`Full` and `Data`+`ML`+`Full` are his; everything else, including any set
+carrying `AI` without `Crypto`, is Connor's. The rule and the reasoning are in
+`analyzer-rule.md` step 2, the server records it on the row, and nothing below is consulted. The
+table here is for a job with **no analysis behind it** — a hand-pasted post, or an alert row a
+person picked.
+
+**Otherwise the test is whose background actually answers the post**, read off the profiles and
+nothing else:
+
+| The post | The person |
+| --- | --- |
+| Named a sector one of them owns — check the industry classification in a work pool before guessing | whoever owns it |
+| Wants something clickable today: a live demo, a deployed site, a working product | **Connor**, who has ten verified demos and six live sites |
+| Salesforce, CPG, or a consulting engagement with a client-facing half | **Mario** |
+| Data, scraping, pipelines, ML, or anything that wants a repository behind it | **Zachary**, whose pool is the one the github gate answers against |
+| Genuinely ambiguous, and the answer would change the letter materially | **ask in the panel**, and draft for the likelier one meanwhile |
+
+**Never mix two pools.** A claim from one person's work inside another's proposal is a false
+claim, which is why this decision is made once, up front, and recorded before anything is
+searched.
+
+**Record the choice** before the search, so the UI and the archive name the person the letter was
+actually written for:
+
+```
+curl -s -X POST localhost:8765/api/job/<id>/person -d '{"person":"Connor"}'
+```
+
+**Say who you picked and why, in one line**, when you report the job — the same courtesy the
+guide switch gets. A silent switch away from the dropdown is exactly the kind of thing that should
+never be a surprise.
+
 # Then pick the guide
 
 The read above decides which guide writes the letter. **The guide is chosen here, not taken from

@@ -11,7 +11,7 @@ This guide is built from four sources, read 2026-09-07:
 - Medium / ILLUMINATION, "5 Tips to Win Proposals and Get Clients on Upwork" (Abhi Thakur)
 - LinkedIn, "Upwork Proposals: Tips and Tricks" (Alexandra Mosnitska, Mar 20 2021)
 
-The person profile (`Mario.md`, `Zachary.md`, ...) supplies every fact. This file supplies the
+The person profile (`profiles/Mario.md`, `profiles/Zachary.md`, ...) supplies every fact. This file supplies the
 shape. Where the sources disagree with the workspace's older structured style, this guide follows
 the sources.
 

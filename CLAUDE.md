@@ -13,7 +13,8 @@ There is no build, lint, test, or run step.
 ## Read the person profile first
 
 **All personal information lives in the person profiles and nowhere else.** There is one profile
-per person: `Mario.md` and `Zachary.md` today, more later. Identity, positioning, skills,
+per person, all of them in `profiles/`: `Mario.md`, `Zachary.md` and `Connor.md` today, more
+later. Identity, positioning, skills,
 industries, portfolio with case-study links and verbatim metrics, working style, and voice. Read
 the profile for whoever the proposal is for before drafting anything, and take every claim, link
 and number from it. Never mix two people's facts.
@@ -26,16 +27,22 @@ Files in this folder:
 
 | File | Holds |
 | --- | --- |
-| `Mario.md`, `Zachary.md` | Everything personal, one file per person: profile, portfolio, metrics, voice |
+| `profiles/Mario.md`, `Zachary.md`, `Connor.md` | Everything personal, one file per person: profile, portfolio, metrics, voice |
+| `profiles/connor-work-pool.md` | Connor's 134 works: 124 repositories plus 10 repo-less projects from his portfolio sites. His 6 live websites are already among those, so they are described there but not counted again |
+| `profiles/zachary-github.md` | Zachary's 74 repositories across his two accounts, each one described from its README |
+| `profiles/` | Every profile, and the resumes and exports they were built from. **Gitignored** |
 | `guides/*.md` | The proposal-writing guides. `decision-maker.md` picks one per job |
 | `github-researcher.md` | The rules for the repository search: judging a job, querying, what to send |
 | `decision-maker.md` | Reading the client out of the post, then choosing which guide writes it |
 | `CLAUDE.md` | This file: what the repo is and where everything lives |
 | `ui/index.html` | Front end: pick a guide, pick a person, paste a JD, get copy-ready output |
-| `proposals/` | Local archive, one readable markdown file per proposal. Gitignored |
+| `.claude/commands/queue-worker.md` | `/queue-worker` — turns a session into the queue worker: analyse arrivals, write the `bid` ones, one at a time |
+| `.claude/agents/queue-analyst.md` | Triage one row. **Haiku**, because it is rule-driven and most rows drop |
+| `.claude/agents/proposal-writer.md` | Write one proposal end to end. **Opus**, because a paying stranger reads it |
+| `proposals/` | Local archive, one markdown file per proposal, plus the images. **Gitignored** |
 | `server.py` | Local server behind the UI. Start it with `./run-ui.sh` |
-| `milestone-template.html` | Starting point for `milestones.jpg` |
-| `approach-template.html` | Starting point for `my_approach.jpg` |
+| `milestone-template.html` | Starting point for `proposals/milestones.jpg` |
+| `approach-template.html` | Starting point for `proposals/my_approach.jpg` |
 | `html-to-jpg.sh` | Renders either template to JPG |
 
 **Proposals are archived locally.** Every proposal is written to `proposals/` as readable
@@ -47,6 +54,56 @@ durable copy. Both are gitignored, since they hold client names and rates and th
 Deleting a row in the history, or Clear all, removes the archived file too. The timed retention
 purge does not: it trims the working list at 20:30 JST, it does not throw away finished work.
 
+## The project ships, the data does not
+
+**This repo is public, and it holds the tool rather than anybody's proposals.** Somebody else
+should be able to clone it, drop their own people into `profiles/`, and have a working proposal
+writer. So the split is between the project and the data, and it is not negotiable:
+
+| | Where | Git |
+| --- | --- | --- |
+| **The project** — guides, rules, `decision-maker.md`, `github-researcher.md`, `analyzer-rule.md`, `CLAUDE.md`, `server.py`, the UI, the templates, the shell scripts | the root, `guides/`, `ui/` | **pushed** |
+| **The people** — every profile, plus the resumes, LinkedIn exports and sample files they were built from | `profiles/` | **ignored** |
+| **The work** — finished proposals, `milestones.jpg`, `my_approach.jpg`, the per-job HTML they were rendered from | `proposals/` | **ignored** |
+| **The machinery's state** — the job queue, the relay threads, the worker's credentials | `.jobs/`, `.queue/`, `.threads/`, `.env` | **ignored** |
+
+**Three rules follow from it.**
+
+1. **A new profile goes in `profiles/`,** never at the root. The server discovers people by
+   globbing `profiles/*.md` for single-word names, so adding a person is still just adding a file —
+   it is simply a file in that folder. A hyphenated name there is supporting material rather than a
+   person, which is how `connor-work-pool.md` sits beside `Connor.md` without becoming a fourth
+   person in the dropdown.
+2. **Images are written into `proposals/`.** `milestones.jpg` and `my_approach.jpg` are per-job
+   output, so they belong with the proposal they illustrate and are ignored along with it. The two
+   templates they are rendered from are project files and stay at the root.
+3. **Never add a single file to `.gitignore` to fix a leak.** Add the pattern, or move the file
+   into one of the two ignored folders. Naming files one at a time is how a confidential client
+   tender reached the public remote on 2026-10-09.
+
+**Nothing personal is ever written to a pushed path.** If a task seems to need one, it is the task
+that is wrong.
+
+## Whose work is whose
+
+**Two people, two pools, and they must never be mixed.** Every repository name below belongs to one
+of them, and a claim from one person's pool inside the other person's proposal is a false claim.
+
+| Person | Their pool | Indexed in |
+| --- | --- | --- |
+| **Zachary** | `github.com/zacharywing303-art` (63 repos, the current one) and `github.com/ZWingman22` (11 repos, 2020 to 2022) | `profiles/zachary-github.md` |
+| **Connor** | `github.com/connorodea` (124 of his own), plus six sites: `odeaworks.com`, `connorodea.com`, `juricratic.com`, `lockrooms.com`, `nexserp.com`, `preecursor.com` | `profiles/connor-work-pool.md` |
+| **Mario** | no GitHub flow at all | — |
+
+**The confusable part is the naming.** Zachary's current account names everything with a single
+generic word, so `systems`, `learning`, `model`, `fully` and `touch` are his, and they tell you
+nothing about their contents without the pool file. Connor's are descriptive, so `ShopifyScraper`
+and `clawd-hub` are plainly his. **If a repository name is a bare common noun it is Zachary's; if
+it reads like a product it is Connor's.** When in doubt, check the file rather than guess.
+
+**Neither account is ever linked wholesale.** Print at most one repository URL, and only when the
+selected guide says to.
+
 ## How to write a proposal
 
 The instructions moved out of this file. **Read `decision-maker.md` first** to read the client
@@ -56,10 +113,21 @@ not; `brainstormed.md` stays in the folder and is used only when the user names 
 
 Two inputs decide every proposal:
 
-1. **Which guide** — decided per job by `decision-maker.md`, not taken from the dropdown.
+1. **Which person** — a profile in `profiles/`. **Decided first**, because whose pool the
+   repository search runs against depends on it. **An analysed search row has already decided it
+   from its stack marks** — `Crypto` is Zachary outright, otherwise `Data` with no `AI` is
+   Zachary and everything else is Connor, per `analyzer-rule.md` step 2 — and the server records
+   that on the row. Like the guide it has two modes: the job carries
+   `person_mode`, and `manual` means the user picked and you must write for whoever they chose.
+   In `auto` the dropdown is only a default and `decision-maker.md` decides. Ask in the panel only
+   when it is genuinely ambiguous and the answer would materially change the proposal.
+2. **Which guide** — decided per job by `decision-maker.md`, not taken from the dropdown.
    `github-friendly` when the repository search returned something, `article-based` otherwise.
-2. **Which person** — `Mario.md` or `Zachary.md`. Ask if the job description makes it ambiguous
-   and the answer would materially change the proposal.
+   **Decided last**, since the choice turns on what the search returned.
+
+Both are recorded back so the UI and the archive name what actually wrote the letter:
+`POST /api/job/<id>/person` and `POST /api/job/<id>/guide`. The server rejects either change on a
+job whose matching mode is `manual`.
 
 ## Rules that apply to every guide
 
@@ -90,9 +158,51 @@ pick a guide, pick a person, paste a job description, and get a copy-ready propo
 button. It discovers guides from `guides/*.md` and people from single-word `.md` profiles in this
 folder, so adding either is just adding a file.
 
+**One door in, and it is the queue.** Every job is created from a queue row: `/api/generate`
+takes a `queue_seq` and nothing else, and the raw-`jd` shape it used to accept was removed on
+2026-10-13. A row carries the posting, the Upwork link, the real title and the client name as
+*fields*, so a job built from one gets all four — which is what the old shape could not do, since
+it carried only flattened prose.
+
+Rows reach the queue two ways, and there is no third:
+
+| Route | How | Analysed? |
+| --- | --- | --- |
+| **The relay** | the server's own `relay_pull` long-polls the `jobs` channel and keeps every message as a row | only when the body says `source: search` |
+| **A paste** | `POST /api/queue/paste -d '{"jd":"...","url":"..."}'` returns a `seq`, which the UI then generates from | never: a person pasting a post has already judged it |
+
+A pasted row is handed back to the writer **verbatim**. Clients plant application instructions in
+the posting, so nothing is prepended or appended to a paste — its link travels as a field on the
+row instead. Pasted rows take seqs from 900000 up so they can never collide with a relay seq.
+
+**What the relay allocated this project, and what it says to it.** The server is the only thing
+that talks to the relay. Three endpoints cover it:
+
+```
+curl -s localhost:8765/api/relay/status                  # worker id, channels, last poll
+curl -s -X POST localhost:8765/api/relay/enrol -d '{}'   # enrol this machine as a worker
+curl -s -X POST localhost:8765/api/relay/publish  -d '{"channel":"github","body":{...}}'
+```
+
+- **The worker id is read off the live poll**, not a file: `/messages` names the caller on every
+  answer, so a restart knows it again within one 25-second cycle. `connected` is true once it has.
+- **Channels can only be observed**, since the relay exposes no way to list them. The map is
+  seeded at boot from the channels recorded on stored queue rows and report threads, so the
+  status is useful immediately rather than blank until the next job lands.
+- **A notice is the relay talking to this project** rather than handing it work. `/messages`
+  returns a `notices` array alongside `messages`, and until 2026-10-13 it was read by nothing —
+  every notice the relay ever sent was dropped. Notices now become report threads, which is where
+  an instruction message already goes, so they are read on the Report page.
+- **Enrolment is a one-time handshake whose result lives on the relay**, keyed to `RELAY_WORKER`
+  and `RELAY_TOKEN` in `.env`. It is harmless to repeat and answers `already` when it is. This is
+  the one thing `proposal_bridge.py` did that was worth keeping; the endpoint enrols and can do
+  nothing else, which is why the bridge itself is not missed.
+
 **Bridge mode.** With no `ANTHROPIC_API_KEY` set, pressing "Write proposal" does not fail. It
-queues the job and the running Claude Code session writes it. If you are that session, watch the
-queue and service it:
+queues the job and the running Claude Code session writes it. **This is unrelated to the
+`proposal_bridge.py` relay bridge, which was deleted on 2026-10-13** — "bridge mode" only means
+the writer is a Claude Code session rather than the API. If you are that session, watch the queue
+and service it:
 
 ```
 curl -s localhost:8765/api/jobs/queued              # {"ids": [...]}
@@ -129,11 +239,40 @@ fix is the user pasting the post.
 **A planted instruction outranks the shape any guide prescribes.** If the post demands a specific
 first word, that word goes first, ahead of the greeting or the opening line the guide asks for.
 
+## Two sessions, and they do different jobs
+
+**The work splits cleanly in two, so it can run in two sessions side by side.**
+
+| Session | Does | How it starts |
+| --- | --- | --- |
+| **Conversation** | talking to the user: decisions, rules, changes to this repo and the server | an ordinary session |
+| **Queue worker** | the loop: analyse each arrival, write the `bid` ones, one at a time, forever | `/queue-worker` |
+
+**The worker splits again inside itself, by model.** Triage and writing want different things, so
+`/queue-worker` orchestrates rather than working: `queue-analyst` runs on **haiku** because the
+analysis is a rule table applied to forty rows a day, and `proposal-writer` runs on **opus**
+because its output goes to a paying stranger. The models are pinned in each agent's frontmatter,
+not chosen per call, so the split cannot drift.
+
+**Only one of them should be working the queue.** The floor is held server-side —
+`GET /api/work/inflight` reports it, and `POST /api/queue/<seq>/claim` is refused 409 while
+anything else is in flight — so two workers cannot analyse the same row or write two proposals at
+once. That guard is what makes a second session safe rather than a race.
+
+**The conversation session should not take queue work while a worker is running.** Not because it
+would corrupt anything, the claim prevents that, but because the user then cannot tell which
+session is doing what.
+
 ## The order of work on one job
 
 Pressing **Write proposal** starts this sequence. It is the same in Auto and Manual mode, and
 nothing in it is optional.
 
+0. **Settle who the proposal is for, and record it.** The job carries `person_mode`: `manual`
+   means the user chose and you write for them, `auto` means you decide it per **First pick the
+   person** in `decision-maker.md` and post it to `/api/job/<id>/person`. This is step zero
+   because the search in step 1 is not the same search for every person — Connor's own work pool
+   is read first, Zachary's is not.
 1. **Read the job description and search GitHub** for one or two projects genuinely close to it.
    This comes before the full analysis and before any drafting, on every new job id including a
    rerun of a post already searched.
@@ -150,7 +289,8 @@ nothing in it is optional.
    point of the whole exchange: the search goes out, and what comes back is his matching work.
    Read what those repos actually contain, because they are the material the past-work half of the
    proposal is built from.
-6. **Read the client out of the post, then pick the guide, but only in Auto.** The job carries
+6. **Read the client out of the post, then pick the guide, but only in Auto.** The person was
+   settled at step zero, so this step is only about the guide. The job carries
    `guide_mode`. **`manual` means the person chose it and you must write with what they picked**,
    whatever the decision would have said; the server rejects a guide change on such a job. In
    `auto`, decide it. Both halves are in `decision-maker.md`:
@@ -300,6 +440,28 @@ curl -s -X POST localhost:8765/api/job/<id>/await_github -H 'content-type: appli
 the links above the status bar with unticked boxes. Arming with an empty body still holds the job,
 but it leaves the user looking at an unexplained pause with nothing to look at.
 
+**For Connor his own repositories are searched first, and the gate is the fallback.** The
+sequence above is Zachary's, and it still applies to Connor — it just runs second. **This is why
+the person is decided before the search rather than after**: the two people have different first
+moves, so the search cannot start until the job knows who it is for.
+
+1. **Search `profiles/connor-work-pool.md` first.** His 134 own works are pooled there by domain,
+   his GitHub merged with the projects on his site, and a match is the best possible answer
+   because the work is genuinely his. Read the repository before claiming anything about it.
+   **Where a work has a live demo, send the demo and the source together**: ten of them are
+   verified working, and a client who can click something beats a repository they will not read.
+2. **A hit ends it.** No publish, no gate, no pause: write the proposal from what you found and go
+   straight to the draft.
+3. **A miss falls through to the ordinary workflow.** Search public GitHub, publish to the
+   `github` channel, arm the gate, hold, and write from the repositories the server sends back —
+   every step exactly as it runs for Zachary. **Searching his own account first does not excuse
+   skipping the gate**; it only means the gate is not needed when his own work already answers the
+   post.
+
+**Never link his account** whichever path ran: 631 of his 755 public repositories are forks. The
+rules for reading his repositories are in `profiles/connor-work-pool.md`; `Mario.md` has no GitHub flow at
+all.
+
 **The search itself lives in `github-researcher.md`.** How to judge whether a job can carry a
 search, how to query, and which repositories are worth sending are all rules in that file. Read it
 before step 1. This section keeps only the workflow around it: when the search fires, what holds,
@@ -344,7 +506,7 @@ analysis step, not a second chance at it. A question that would be better asked 
 proposal, not the panel.
 
 Post the proposal back as **markdown**; the page converts it to Unicode bold itself. Jobs are
-mirrored to `.jobs/<id>.json`. Build `milestones.jpg` and `my_approach.jpg` as usual and send them
+mirrored to `.jobs/<id>.json`. Build `proposals/milestones.jpg` and `proposals/my_approach.jpg` as usual and send them
 in chat, since the output box is text only. With an API key set, the same button calls the API
 directly and the queue is unused.
 
@@ -354,6 +516,28 @@ directly and the queue is unused.
 **A job arriving from the `search` feed is analysed the moment it lands.** Nothing else triggers
 it: the `upwork` and `vollna` alerts are not analysed, and this happens before any decision to bid,
 so it is separate from writing a proposal.
+
+**Everything automatic belongs to the general vollna search alone.** The analysis, the stack
+marks, the drop, **and writing the proposal.** Nothing fires by itself for a job from any other
+feed.
+
+**A queued row is not a request to write it.** The server's own `relay_pull` keeps *every*
+message on the `jobs` channel as a queue row: the `upwork` and `vollna` alerts, and anything else
+that crosses it, including a Vollna report email that became job `647c254c` on 2026-10-12. So a
+row appearing in the queue means a message arrived, **not that a person chose it.**
+
+**A row is not a job, though, and that is the safeguard.** Until 2026-10-13 `proposal_bridge.py`
+also watched the channel and posted every message to `/api/generate` with its own `--person
+Zachary --guide brainstormed` flags, so each arrival became a *written-up job* nobody had picked —
+and, because the bridge sent prose rather than fields, one with no Upwork link on it. The bridge
+is gone and `/api/generate` now takes a queue seq and nothing else, so a job exists only once
+somebody or something has chosen the row it came from.
+
+**Therefore: write it only when the job came from the search feed with `decision: bid`, or when a
+person asks for it.** For anything else, leave it queued and say what landed. Jobs now carry their
+`source` so the two can be told apart. Writing an alert job unasked spends a Connect on a post
+nobody picked, and that is how 35 proposals went out for a 0% reply rate in the week to
+2026-10-12.
 
 The server flags the queue row on arrival and it shows on the card as *analysing…*. Watch for the
 work the way you watch the job queue:
@@ -368,8 +552,152 @@ curl -s -X POST localhost:8765/api/queue/<seq>/analysis \
 `POST /api/queue/<seq>/analyze -d '{"redo":true}'` asks for one by hand, or re-runs an analysis
 that is already there.
 
+**One thing at a time, and the server holds the floor.** On the user's instruction of 2026-10-13:
+a new job arriving is analysed, but **the next piece of work does not start until the current one
+has finished** — no analysing one row while another is mid-analysis, and nothing started while a
+proposal is being written. Claim before working, and the claim is refused if anything else is in
+flight:
+
+```
+curl -s localhost:8765/api/work/inflight             # {"busy": false, "work": null}
+curl -s -X POST localhost:8765/api/queue/<seq>/claim # 409 while something else holds the floor
+curl -s -X POST localhost:8765/api/queue/<seq>/release   # let go without having analysed it
+```
+
+Two things hold the floor: a **row claimed for analysis** (`analysing_since` set, no analysis
+yet), and a **job being written** (status `working` or `revising`). A *queued* job holds nothing —
+it exists but nothing has picked it up. Posting the analysis, or the proposal, frees the floor.
+
+**Release an abandoned claim.** A claim is a file on disk, so it outlives the session that made
+it; one left behind blocks every later piece of work until it is released or the analysis lands.
+
+**The card has three states, not two.** `awaiting analysis` means the flag is set and nothing is
+running — the honest reading, since the analyzer is a Claude Code session and a row sits untouched
+when none is watching. `analysing…` shows only while a row is actually claimed. `analysed` is the
+finished state, and the stack marks beside the title are its conclusion. Before 2026-10-13 every
+unanalysed row said `analysing…`, so three rows that nobody had touched looked like work in
+progress for two hours.
+
+**A row waiting to be analysed raises nothing.** There was briefly a *Waiting on the analyzer*
+alarm at 8 minutes; it was removed on the user's instruction the same day, because a row that has
+not been analysed yet carries nothing a person can act on — no verdict, no person, no client name.
+The card saying `awaiting analysis` is the whole of the signal.
+
+**The alarm comes after the analysis, because that is when there is something to say.** The
+analysis is what produces the three facts worth a notification: **dropped or not**, **which
+person**, and **the client's name** where the reviews gave one. So Hungry's message leads with
+them — see the Telegram section below.
+
 **What to analyse is in `analyzer-rule.md`, and nowhere else.** Read it before writing anything.
-While its rules section is still empty, say so in the analysis rather than inventing criteria.
+It now carries the rules: the stack marks, the client's name out of their own reviews, the Telegram
+message, and writing the proposal when the decision is `bid`.
+
+**The analysis is posted with its stack marks**, which are what the card actually shows. The card
+displays status only, `analysing…` then `analysed`, and the conclusion is the marks beside the
+source:
+
+```
+curl -s -X POST localhost:8765/api/queue/<seq>/analysis \
+  -d '{"analysis":"...","stack":["Data","AI"]}'
+```
+
+`Data`, `AI`, `ML`, `Full`, `Crypto` are the only accepted marks. An empty list means no engineer
+here can do the work, which marks the row dropped and sends no Telegram.
+
+**A dropped row is deleted from the queue**, not hidden: nothing here can do the work, so the row
+goes. The drop is therefore final — no `redo` can reverse it and the written analysis goes with the
+file — so an empty stack is a deletion rather than a label. **Clear all**, beside Refresh, empties
+the rest of the queue in one action; Refresh only ever *pulls* from the relay and never removes
+anything, which is why the two are separate buttons.
+
+**The client's past contracts** arrive inside the description text, not as fields, and are parsed
+out of it: `GET /api/queue/<seq>/history` returns them, and the card shows the count on a button.
+Reviews written *to* the client are where their name comes from.
+
+## When a write stalls, the phone hears about it
+
+**Writing starts at one of exactly two moments, and nothing else starts it:**
+
+1. **A person presses "Write proposal"** with a queue row ticked.
+2. **A `bid` decision is acted on** — the job came from the general vollna search, the analyzer
+   did not drop it, and the decision was `bid`.
+
+Both create the job, so **`job["created"]` is the start of the clock** either way. Two alarms run
+off it, both on Night Fury, both once per job:
+
+| Alarm | Fires when | Message |
+| --- | --- | --- |
+| **Still writing** | 8 minutes (`WRITE_SLOW_AFTER`) since writing started and there is still no proposal | *Still writing* + how long + the status, and it says so when the job is held at the github gate |
+| **Failed to write proposal** | a `/result` came back with no proposal text, or a job reached `done` with an empty one | *Failed to write proposal* + what went wrong + the status |
+
+**Why it exists.** Before 2026-10-13 the only proposal alarm fired on a *finished* draft, so a job
+that was created and then simply sat said nothing at all — and silence read exactly like success.
+Two jobs stalled queued for 218 and 323 minutes that day with no word either way.
+
+**What stays silent, deliberately:**
+
+- **A dropped job**, which rings neither bell: `job["dropped"]`, or a queue row the analyzer
+  dropped. A refusal is not a failed write.
+- **A cancelled job**, which is a person's own decision.
+- **A job with a proposal in it**, however long it took — the done alarm covers that.
+
+**The 8-minute alarm is a warning, not a verdict.** It does not cancel anything and the write may
+still land; the done alarm fires normally afterwards. It fires during a github gate hold too,
+since a long hold is exactly the thing worth knowing about.
+
+**Both flags are stored on the job** (`notified_slow`, `notified_failed`), so they survive a
+restart and cannot double-fire. **Neither alarm is ever sent from inside `JOBS_LOCK`** — a
+Telegram round trip must not hold up every other request, which is why an empty `/result` records
+`write_error` and the 30-second watcher sends it rather than the request handler.
+
+## Two Telegram bots, and they do not overlap
+
+| Bot | Token in `.env` | Carries |
+| --- | --- | --- |
+| **Night Fury** `@hiro_upwork_handler_bot` | `TELEGRAM_BOT_TOKEN` | proposal done, boost due |
+| **Hungry** `@hiro_upwork_bot` | `TELEGRAM_JOBS_BOT_TOKEN` | job info from the analyzer |
+
+The split is the point: the bot a message arrives from says whether it is a job worth reading or a
+proposal worth sending, before either is opened. **Never send job info on Night Fury**, and never
+send an alarm on Hungry.
+
+**Hungry rings when an analysed job is worth reading, and on two tests only:** the row came from
+the **general vollna search** (`body.source == "search"`), and it was **not dropped**. Sent from
+the analysis handler, which is the only place job info is sent, and announced **once** per row —
+`notified_jobs` on the row. `POST /api/queue/<seq>/analyze -d '{"redo":true}'` clears that flag,
+so a re-analysis whose verdict changed can announce afresh.
+
+Two messages, in this order: the headline (title, **stack marks and the person they chose**,
+budget, client rank and location, **the client's name** where there is one, the link) so the
+notification preview carries the verdict, then the posting on its own so it reads and forwards
+cleanly.
+
+**Those three facts are why it fires here and not on arrival.** Whether the job is dropped is
+expressed by the message existing at all; the person comes straight out of the marks; the client's
+name comes from the reviews. None of the three exists before the analysis, which is what makes
+this the only useful moment to send anything.
+
+**Nothing rings on arrival.** A new row is not announced — the queue in the UI already shows it
+and the phone message was noise. Hungry hears about the *analysed* job, once a verdict exists.
+
+**Dropped rings neither bell**, which is the rule that makes the whole thing legible: Hungry stays
+quiet because no engineer here can do the work, and Night Fury stays quiet because the `/result`
+posted to a dropped row is a refusal rather than a proposal.
+
+**A dropped job rings neither bell.** Hungry hears nothing because no engineer here can do the
+work, and Night Fury hears nothing because the `/result` posted to a dropped row is a refusal
+rather than a proposal. Post it with `"dropped": true` alongside the text, which is what tells the
+server to stay quiet.
+
+**Each bot has its own sender, and they cannot be confused.** Both call `_telegram_post(token,
+chat, ...)`; `telegram_send()` passes Night Fury's pair and `telegram_jobs_send()` passes
+Hungry's, and every message names its bot in the log (`telegram[hungry] sent …`). Until
+2026-10-13 `TELEGRAM_JOBS_BOT_TOKEN` and `TELEGRAM_JOBS_CHAT_ID` were read by **nothing**: Hungry
+was configured and never once used.
+
+`telegram_new_job()` is gone, deleted the same day. It had been dead since 2026-09-24 and it
+called `telegram_send()`, so anyone re-enabling it would have pushed job info down Night Fury —
+the one thing this section forbids. There is no longer a wrong-bot path to re-enable.
 
 ## The translate button
 

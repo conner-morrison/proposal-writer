@@ -5,7 +5,7 @@
 a read of the requirements.
 
 Two phases. First you brainstorm the client out of the job description. Then you write the
-proposal from what you found. The person profile (`Mario.md`, `Zachary.md`, ...) supplies every
+proposal from what you found. The person profile (`profiles/Mario.md`, `profiles/Zachary.md`, ...) supplies every
 fact about us; this file supplies the method.
 
 ---
@@ -317,7 +317,7 @@ nothing above fits, ask for fifteen minutes.
 
 **10. Images**
 
-Ship `milestones.jpg` and `my_approach.jpg` **only when the engagement is multi-week and the
+Ship `proposals/milestones.jpg` and `proposals/my_approach.jpg` **only when the engagement is multi-week and the
 client is buying a plan.** Skip them when the job is a few days or less, when the model is bench
 or hourly rather than milestone-based, or when the proposal's own argument is that scope isn't
 known yet, because a confident milestone chart contradicts asking for discovery.

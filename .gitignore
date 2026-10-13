@@ -1,11 +1,23 @@
-# This repo is public. Everything below either belongs to a client, identifies
-# one, or would let someone act as this worker. Add to the patterns rather than
-# naming single files: the one-file-at-a-time approach is how a confidential
-# tender reached the public remote on 2026-10-09.
+# This repo is public, and it holds a proposal-writing tool rather than anybody's
+# proposals. The rule: the project is pushed, the data is not. Guides, rules,
+# templates, the server and the UI are the project and they all ship. Who the
+# people are, what was written for whom, and the images that went with it are
+# custom data, so they live in profiles/ and proposals/ and stay here. Somebody
+# else can clone this and drop their own people in.
+#
+# Add to the patterns rather than naming single files: the one-file-at-a-time
+# approach is how a confidential tender reached the public remote on 2026-10-09.
 
-# Per-job working files, regenerated on every proposal
-milestones.jpg
-my_approach.jpg
+# The person profiles, and the documents they were built from. Real names,
+# rates, client work and candid assessments written for our own use.
+profiles/
+
+# Per-job images and the HTML they were rendered from. They live in proposals/
+# now, so they are already covered, but a stray one at the root is still caught.
+*.jpg
+*.jpeg
+*.png
+!ui/favicon.png
 milestones-job.html
 approach-job.html
 

@@ -21,6 +21,13 @@ same: a job typed into Manual gets the same search as one ticked off the Auto qu
 job can come round again. Search it again rather than reusing the last answer. Only a revision of
 the same job id, after answers come back from the panel, skips the search.
 
+**For Connor, search his own work before this file applies.** `profiles/connor-work-pool.md`
+pools 129 of his works by domain, his repositories merged with the projects on his site, ten of
+them with a verified live demo. A match there beats anything public search can return, because
+the work is genuinely his: no publish, no gate, straight to the draft.
+**Only when nothing in his index fits does the search below run**, and then it runs in full —
+publish, gate, hold, write from what comes back. Zachary and Mario start here directly.
+
 ## Whether the job can carry a search at all
 
 **It qualifies when the post names something implementable:** a stack, a platform, a data domain,

@@ -83,6 +83,20 @@ written analysis goes with the file, so the reasoning for the drop is not kept. 
 marking a row dropped** — an empty stack is a deletion, not a label. **Clear all** beside Refresh
 empties the rest of the queue in one action.
 
+**`Full` on its own is a drop.** On the user's instruction of 2026-10-14: a job that is only
+web or application work, with no `Data`, `AI`, `ML` or `Crypto` in it, goes. Mark it honestly and
+let the drop follow — do not reach for a second mark the work does not support just to keep a row
+alive. `Full` **alongside another mark is fine and common**: `Data` + `Full` is a dashboard over a
+warehouse, `Crypto` + `Full` is an exchange backend, and both survive.
+
+So there are now two ways to a drop, and both delete the row:
+
+| Marks | Outcome |
+| --- | --- |
+| none of the five apply | dropped — no engineer here can do it |
+| `Full` and nothing else | dropped — they could, but it is not worth a Connect |
+| `Full` plus anything else | kept |
+
 **If none of the five apply, drop it.** Design-only briefs, copywriting, virtual assistants,
 sales and lead-generation roles, bookkeeping, video editing: there is no engineer here who can do
 them, so the row is marked dropped and nothing further happens to it. No Telegram message is sent
@@ -104,6 +118,7 @@ AI it is Connor's:
 
 | Stack marks | Person |
 | --- | --- |
+| `Full` on its own | **nobody — the row is dropped** |
 | anything with `Crypto` on it | **Zachary** |
 | `Data` | **Zachary** |
 | `Data` + `ML` | **Zachary** |
@@ -162,9 +177,12 @@ an unanalysed row was tried on 2026-10-13 and removed the same day for exactly t
 boost-due alarms. Two bots so the phone tells a job worth reading from a proposal worth sending
 without either being opened. Never send job info on the proposal bot.
 
-**Cut the work history out of the description first.** The feed appends it to the end of the
-description text, so sending the description raw sends fifty contracts with it and buries the job
-in the client's past. The message stops at the `Work history (N past contracts):` header. The
+**The work history is cut out before sending, and the server does it for you.** The feed appends
+the client's past contracts to the end of the description, so sending it raw sends fifty contracts
+with it and buries the job in the client's past. `telegram_job_analysed` truncates at the
+`Work history (N past contracts):` header. This was a rule the code did not honour until
+2026-10-14 — the message carried the lot. The count stays on the queue card and the detail sits
+behind its button there, which is where it can be read deliberately. The
 history belongs on the queue card, behind its button, where it can be read deliberately.
 
 Nothing is sent for a dropped job.

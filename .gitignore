@@ -32,6 +32,11 @@ approach-job.html
 # Ten of these were on the public remote before being ignored here.
 .threads/
 
+# Runtime state for the three workers: which are running, paused or stopped,
+# and what each is on. A folder rather than a file, so the next bit of state
+# has somewhere to go without anybody naming it in here one at a time.
+.state/
+
 # The local proposal archive. Kept out of the public repo because these carry
 # client names, job descriptions and rates. Delete this line to version them.
 proposals/

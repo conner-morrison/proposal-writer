@@ -21,12 +21,15 @@ same: a job typed into Manual gets the same search as one ticked off the Auto qu
 job can come round again. Search it again rather than reusing the last answer. Only a revision of
 the same job id, after answers come back from the panel, skips the search.
 
-**For Connor, search his own work before this file applies.** `profiles/connor-work-pool.md`
-pools 129 of his works by domain, his repositories merged with the projects on his site, ten of
-them with a verified live demo. A match there beats anything public search can return, because
-the work is genuinely his: no publish, no gate, straight to the draft.
-**Only when nothing in his index fits does the search below run**, and then it runs in full —
-publish, gate, hold, write from what comes back. Zachary and Mario start here directly.
+**This file does not apply to Connor at all.** On the user's instruction of 2026-10-14, a
+proposal for Connor is written from **his own work pool and nothing else**: search
+`profiles/connor-work-pool.md`, which holds 134 of his works by domain with ten verified live
+demos, and stop there. **Never go looking for a similar project outside it.** No public GitHub
+search, no publish, no gate, no hold — a match goes straight to the draft, and a miss goes
+straight to the draft too, written from the nearest thing he has genuinely built or from his
+skills where nothing fits.
+
+Everything below is for **Zachary**, who starts here directly. Mario has no repository flow.
 
 ## Whether the job can carry a search at all
 

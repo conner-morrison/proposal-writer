@@ -47,6 +47,36 @@ PROPOSALS = ROOT / "proposals"   # readable local archive, one markdown file per
 QUEUE_DIR = ROOT / ".queue"      # jobs pulled off the relay, waiting to be written
 THREADS_DIR = ROOT / ".threads"  # the Report page: talking to the server, not about jobs
 IDENTITY_FILE = ROOT / ".identity.json"  # who this project is to the server, once registered
+STATE_DIR = ROOT / ".state"              # runtime state for the three workers
+WORKERS_FILE = STATE_DIR / "workers.json"
+
+# The three roles, separated so they can run at once without tripping over each
+# other. None of this is new behaviour: the project already brought jobs in,
+# analysed them and wrote proposals. What is new is that each role has its own
+# lifecycle, so one can be paused without the others stopping.
+#
+#   bringer   the server's own relay poll. The only one that runs *inside* this
+#             process, so start/stop genuinely starts and stops the thread.
+#   analyzer  a Claude Code session on haiku, working the queue in order.
+#   writer    a Claude Code session writing proposals.
+#
+# The analyzer and the writer are sessions rather than threads, so the server
+# cannot start them. What it holds is the *intent*: a session reads its own
+# state before each step and obeys it. "running" means carry on, "paused" means
+# finish nothing new and wait, "stopped" means do not pick anything up.
+WORKER_ROLES = ("bringer", "analyzer", "writer")
+WORKERS = {}
+WORKERS_LOCK = threading.Lock()
+
+# A worker's stored intent. "off" is never stored: it is derived from nobody
+# being attached, because a role with no session behind it is not in any state
+# a person chose for it.
+WORKER_STATES = ("idle", "running", "paused", "error")
+
+# How long after its last heartbeat a session still counts as attached. A
+# session that checks in every 30 seconds stays attached comfortably; one that
+# has gone away shows as off within two missed beats.
+WORKER_ATTACH_SECONDS = 90
 
 # Report threads. One per instruction the server sent us, or per request we
 # sent it. Deliberately separate from JOBS: nothing about a proposal belongs
@@ -270,6 +300,235 @@ def project_name():
     return read_env().get("PROJECT_NAME") or "Proposal Writer"
 
 
+def _worker_blank(role):
+    # Idle, not running: a fresh worker has been allocated nothing and started
+    # by nobody. Claiming "running" at boot was the bug this replaced.
+    return {"role": role, "state": "idle", "note": "", "current": "",
+            "error": "", "last_seen": None, "changed": time.time(),
+            # Commands are counted, not just stored as a level. Pressing Stop
+            # and then Start before the session's next heartbeat used to be
+            # invisible to it: the level was back to running, so nothing had
+            # apparently happened. The counter means a session can tell that a
+            # command was issued even when the state it ends on is unchanged,
+            # and the panel can say whether it was heard.
+            "command_seq": 0, "last_command": "", "command_at": None,
+            "acked_seq": 0, "acked_at": None,
+            # Set when a person presses Write proposal, Submit and rewrite, or
+            # Answer screening while the writer is mid-draft. The writer yields,
+            # the person's job goes first, and this clears when it lands.
+            "yielded_to": ""}
+
+
+def load_workers():
+    """Worker state survives a restart, so a paused writer stays paused."""
+    with WORKERS_LOCK:
+        for role in WORKER_ROLES:
+            WORKERS[role] = _worker_blank(role)
+        if WORKERS_FILE.is_file():
+            try:
+                saved = json.loads(WORKERS_FILE.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                saved = {}
+            for role in WORKER_ROLES:
+                row = saved.get(role)
+                if isinstance(row, dict):
+                    WORKERS[role].update({k: v for k, v in row.items()
+                                          if k in WORKERS[role]})
+                    WORKERS[role]["role"] = role
+                    if WORKERS[role]["state"] not in WORKER_STATES:
+                        WORKERS[role]["state"] = "idle"
+        # Nothing is mid-step across a restart, so no role comes back claiming
+        # to be busy and none comes back owing a person a turn. The command
+        # counter is reset together with its ack, so a restart does not look
+        # like an unheard command.
+        for role in WORKER_ROLES:
+            WORKERS[role]["current"] = ""
+            WORKERS[role]["last_seen"] = None
+            WORKERS[role]["yielded_to"] = ""
+            WORKERS[role]["command_seq"] = 0
+            WORKERS[role]["acked_seq"] = 0
+            WORKERS[role]["acked_at"] = None
+    save_workers()
+
+
+def save_workers():
+    STATE_DIR.mkdir(exist_ok=True)
+    with WORKERS_LOCK:
+        WORKERS_FILE.write_text(json.dumps(WORKERS, indent=2), encoding="utf-8")
+
+
+def worker_set(role, **fields):
+    if role not in WORKER_ROLES:
+        return None
+    with WORKERS_LOCK:
+        w = WORKERS.setdefault(role, _worker_blank(role))
+        if "state" in fields and fields["state"] != w.get("state"):
+            w["changed"] = time.time()
+        w.update(fields)
+        out = dict(w)
+    save_workers()
+    return out
+
+
+def worker_get(role):
+    with WORKERS_LOCK:
+        return dict(WORKERS.get(role) or _worker_blank(role))
+
+
+def worker_attached(role, w=None):
+    """Is there actually something behind this role right now?
+
+    The bringer is a thread in this process, so it is attached whenever the
+    server is up. The analyzer and the writer are Claude Code sessions, so they
+    are attached only while one is heartbeating. Without this the panel showed
+    a role as "running" when no session had ever existed, which is the bug this
+    answers: a stored intent is not a worker.
+    """
+    if role == "bringer":
+        return True
+    w = w or worker_get(role)
+    seen = w.get("last_seen")
+    return bool(seen) and (time.time() - seen) <= WORKER_ATTACH_SECONDS
+
+
+# What "running" is called, per role. A person reading the panel wants the verb
+# for the job, not the state of the process: a writer that is running is either
+# writing or waiting for something to write, and those are different facts.
+WORKER_VERBS = {"bringer": "bringing", "analyzer": "analyzing", "writer": "writing"}
+
+
+def worker_activity(role, w=None):
+    """The word to show beside the name.
+
+    Off, idle, paused and error are shown as they are. A **running** worker is
+    shown as its own verb while it genuinely holds work and as `waiting`
+    otherwise, so "running" never has to stand for both.
+
+    **Decided from what the server knows, not from what the session says.**
+    The first version read the heartbeat's `current` and called any non-empty
+    value work — so a session reporting "idle, watching the queue", which is
+    the honest thing for it to report, was labelled analyzing. A stale `current`
+    had the same effect and would never clear.
+
+    The server already owns the truth: a claimed queue row is an analysis in
+    progress, and a job being written is a proposal in progress. Those cannot
+    be stale and a session cannot misreport them.
+    """
+    w = w or worker_get(role)
+    st = worker_status(role, w)
+    if st != "running":
+        return st
+    if role == "bringer":
+        # Set by the poll loop itself, so it is server truth too. Holding the
+        # long poll is waiting; only rows in hand are bringing.
+        cur = str(w.get("current") or "").strip()
+        return "bringing" if cur.startswith("bringing") else "waiting"
+    if role == "analyzer":
+        return "analyzing" if work_in_flight("analysis") else "waiting"
+    # The writer is writing only when the job in flight is *its* job. A
+    # proposal the person is writing in their own session is not this role's
+    # work, and must not light this row up.
+    # Every job in flight, not just the first one found. Two can be written at
+    # once — the person's in their session and the queue's in the writer's — so
+    # asking only about the first made this row depend on dict order.
+    with JOBS_LOCK:
+        for job in JOBS.values():
+            if job.get("status") not in ("working", "revising"):
+                continue
+            if (job.get("writing_by") or job.get("initiator")) == "writer":
+                return "writing"
+    return "waiting"
+
+
+def worker_status(role, w=None):
+    """What to show. "off" outranks everything, because an unattached role is
+    not paused or idle, it is absent."""
+    w = w or worker_get(role)
+    if w.get("state") == "error":
+        return "error"
+    if not worker_attached(role, w):
+        return "off"
+    return w.get("state") or "idle"
+
+
+def worker_may_run(role):
+    """What a session is allowed to do right now.
+
+    `run` false means do not start the next piece of work. The reason is
+    separated so a session can say why it is holding rather than looking stuck.
+    """
+    w = worker_get(role)
+    if w["state"] == "error":
+        return {"run": False, "reason": "error, needs a person", **w}
+    if w["state"] == "idle":
+        return {"run": False, "reason": "not started", **w}
+    if w["state"] == "paused":
+        return {"run": False, "reason": "paused", **w}
+    # No yield check: a person's job no longer stops the writer. The two run
+    # in their own sessions, on their own jobs, side by side.
+    return {"run": True, "reason": "", **w}
+
+
+def worker_raise_error(role, detail, current=""):
+    """Something unexpected that a person has to look at.
+
+    Sets the role to error, which stops it, and rings Night Fury once. An alarm
+    about our own machinery is not job info, so it never goes to Hungry.
+    """
+    if role not in WORKER_ROLES:
+        return None
+    before = worker_get(role)
+    out = worker_set(role, state="error", error=str(detail)[:400],
+                     note="stopped on an error, needs a person",
+                     current=str(current or before.get("current") or "")[:160])
+    if before.get("state") != "error":
+        lines = [f"<b>Error in the {role}</b>",
+                 html.escape(str(detail)[:600])]
+        if out.get("current"):
+            lines.append("Was on: " + html.escape(out["current"]))
+        telegram_send("\n".join(lines), f"worker {role} error")
+    print(f"  worker {role} ERROR: {str(detail)[:160]}", flush=True)
+    return out
+
+
+def writer_yield_to_user(what, job_id=""):
+    """Record that the person started something. **It no longer stops anybody.**
+
+    The writer used to stand down here so the person's job went first. That was
+    right while one session did both; it is wrong now that the person's job is
+    written in their own session and the writer has its own. On the user's
+    instruction of 2026-10-14 the two run side by side and a button press
+    interrupts nothing.
+
+    Kept as a note rather than deleted, because "what is the writer doing and
+    why" is worth answering on the Profile tab, and because the three call
+    sites are the honest record of when a person took a turn.
+    """
+    if not job_id:
+        return None
+    label = f"{what} {job_id}".strip()
+    worker_set("writer", note=f"the person started a {what} of their own; "
+                              f"carrying on regardless")
+    print(f"  person started {label}; writer not interrupted", flush=True)
+    return label
+
+
+def writer_resume_after_user(job_id=""):
+    """The person's job finished. Clears a stale yield and nothing else.
+
+    Yielding is gone, so there is normally nothing to clear. This stays so that
+    a writer left yielded by the old behaviour — a state file written before
+    2026-10-14 — frees itself the first time a person's job lands rather than
+    waiting for somebody to notice.
+    """
+    w = worker_get("writer")
+    if not w.get("yielded_to"):
+        return None
+    worker_set("writer", yielded_to="", note="cleared a yield left by the old behaviour")
+    print(f"  cleared stale yield {w['yielded_to']!r}", flush=True)
+    return w["yielded_to"]
+
+
 def load_identity():
     base = {"name": project_name(), "id": None, "url": None,
             "registered_at": None, "thread": None}
@@ -326,8 +585,24 @@ def approve_registration(thread, assigned_id, note=""):
     return ident
 
 
+def who_wrote(label):
+    """Normalise any "by" label to the only two answers that matter.
+
+    The claim takes a free-text session name and /api/generate takes an
+    `initiator`, but a person reading the queue card wants one of two words:
+    was this the **writer** working the queue, or the **user** pressing a
+    button. Anything that is not plainly the worker reads as the user, because
+    the UI sends nothing and a person is the default actor.
+    """
+    v = str(label or "").strip().lower()
+    if not v:
+        return ""
+    return "writer" if ("worker" in v or "writer" in v) else "user"
+
+
 def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
-            notes="", guide_mode="auto", country="", person_mode="auto"):
+            notes="", guide_mode="auto", country="", person_mode="auto",
+            initiator="user"):
     job = {
         "id": uuid.uuid4().hex[:8],
         "guide": guide_id,
@@ -335,6 +610,11 @@ def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
         # "manual" means the person chose and the writer must not change it.
         "guide_mode": "manual" if guide_mode == "manual" else "auto",
         "person": person_id,
+        # Who asked for this job, and who is writing or wrote it. The card in
+        # the queue reads these back as "writing by writer" / "written by user".
+        "initiator": who_wrote(initiator) or "user",
+        "writing_by": "",
+        "written_by": "",
         # The same two readings for the person, and the same enforcement. What
         # arrives here is the dropdown either way, so the job is always
         # writable; in auto that value is a default the writer may replace.
@@ -398,6 +678,9 @@ def load_jobs():
             job["title"] = derive_title(job.get("jd", ""))
         job.setdefault("guide_mode", "auto")
         job.setdefault("person_mode", "auto")
+        job.setdefault("initiator", "user")
+        job.setdefault("writing_by", "")
+        job.setdefault("written_by", "")
         if not job.get("country"):
             job["country"], job["language"] = detect_country(job.get("jd", ""))
             job.setdefault("translation", "")
@@ -490,20 +773,28 @@ def telegram_jobs_send(text, tag=""):
                           env.get("TELEGRAM_JOBS_CHAT_ID", ""), text, tag, bot="hungry")
 
 
-def work_in_flight():
+def work_in_flight(kind=None):
     """What is being worked on right now, or None.
 
-    One thing at a time, on the user's instruction of 2026-10-13: an analysis
-    and a proposal are both "work", and the next one does not start until the
-    current one is finished. Two things can hold the floor —
+    **Two floors, not one**, since 2026-10-14. They used to be the same lock,
+    so a proposal being written stopped the analyzer taking a row — which made
+    every button press quietly stall triage as well. They are independent now:
 
-      * a queue row claimed for analysis (`analysing_since` set, no analysis yet)
-      * a job being written (status "working" or "revising")
+      * `analysis` — a queue row claimed (`analysing_since` set, no analysis yet)
+      * `proposal` — a job being written (status "working" or "revising")
+
+    `kind` asks about one of them; omitted, it reports either, which is what
+    the old single-floor callers expect.
+
+    **Writing is no longer exclusive.** Two sessions write side by side — the
+    person's own job in their session, the queue's in the writer's — so this
+    reports what is happening rather than refusing a second writer. The thing
+    that keeps them apart is the addressed claim, not this.
 
     A queued job is not in flight: it has been created but nothing has picked
-    it up, so it does not block anything.
+    it up, so it blocks nothing.
     """
-    if QUEUE_DIR.is_dir():
+    if kind in (None, "analysis") and QUEUE_DIR.is_dir():
         for f in sorted(QUEUE_DIR.glob("*.json")):
             try:
                 item = json.loads(f.read_text(encoding="utf-8"))
@@ -513,13 +804,22 @@ def work_in_flight():
                 return {"kind": "analysis", "seq": item["seq"],
                         "since": item["analysing_since"],
                         "title": (item.get("body") or {}).get("title") or ""}
-    with JOBS_LOCK:
-        for job in JOBS.values():
-            if job.get("status") in ("working", "revising"):
-                return {"kind": "proposal", "job": job["id"],
-                        "since": job.get("created"),
-                        "title": job.get("title") or ""}
+    if kind in (None, "proposal"):
+        with JOBS_LOCK:
+            for job in JOBS.values():
+                if job.get("status") in ("working", "revising"):
+                    return {"kind": "proposal", "job": job["id"],
+                            "since": job.get("created"),
+                            "title": job.get("title") or "",
+                            "claimed_by": job.get("claimed_by", "")}
     return None
+
+
+def _without_work_history(text):
+    """The posting, with the client's past contracts cut off the end."""
+    text = str(text or "")
+    m = WH_HEADER.search(text)
+    return (text[:m.start()] if m else text).strip()
 
 
 def telegram_job_analysed(item):
@@ -582,7 +882,13 @@ def telegram_job_analysed(item):
     # notifications for one job, which the user asked to merge on 2026-10-13.
     # The verdict still comes first, so the notification preview is unchanged.
     headline = "\n".join(head)
-    desc = (b.get("description") or "").strip()
+    # The work history is cut off before the posting is sent. The feed appends
+    # the client's past contracts to the end of the description, so sending it
+    # raw sends fifty contracts with it and buries the job in them. The count is
+    # already on the queue card and the detail sits behind its button there,
+    # which is where it can be read deliberately. analyzer-rule.md step 4 asked
+    # for this; the code was still sending the lot until 2026-10-14.
+    desc = _without_work_history(b.get("description") or "")
     if desc:
         # Telegram caps a message at 4096 characters and HTML-escaping only ever
         # makes text longer, so the budget is measured on the escaped result
@@ -793,7 +1099,21 @@ def clear_github_gate(job, reason, reply=None):
     job["awaiting_github"] = False
     job["github_replied"] = True
     job["github_reply"] = reply or {}
+    # Did we get back what we asked about? We know how many repositories were
+    # published, so a short reply or a non-zero `failed` is detectable rather
+    # than reaching the writer as a complete answer. Recorded on the job so the
+    # writer can say so in the note instead of quietly writing from a partial.
+    asked = len(job.get("github_refs") or [])
+    got = len((reply or {}).get("repos") or [])
+    failed = (reply or {}).get("failed")
+    short = asked and got < asked
+    job["github_partial"] = bool(short or (failed not in (None, 0, "0")))
+    job["github_counts"] = {"published": asked, "returned": got, "failed": failed}
     job["note"] = f"github gate cleared ({reason}), writing continues"
+    if job["github_partial"]:
+        job["note"] += f" — PARTIAL: published {asked}, returned {got}, failed {failed}"
+        print(f"  WARNING: github reply for {job['id']} is partial: published {asked}, "
+              f"returned {got}, failed={failed}", flush=True)
     save_job(job)
     print(f"  github gate cleared for job {job['id']}: {reason}", flush=True)
 
@@ -802,9 +1122,15 @@ def apply_github_reply(body):
     """A message on the github channel can release a job that is waiting.
 
     Matched on an explicit job id when the reply carries one. A bare ack with
-    no id releases the single waiting job if there is exactly one, since that
-    is unambiguous, and is ignored when several are waiting rather than
-    guessing which was meant.
+    no id releases the job that has been waiting longest — see the comment
+    below for why guessing beat refusing.
+
+    **With two jobs at the gate this can cross wires**, and that is the cost of
+    the guess: the counterpart sends acks without a job id, so a reply that
+    answered the newer search will release the older job, which then writes
+    from repositories that answered a different question. It only bites when
+    two sessions hold gates at once. The fix is upstream — replies carrying the
+    job id — not here.
     """
     job_id = str(body.get("job") or body.get("job_id") or "").strip()
     with JOBS_LOCK:
@@ -812,6 +1138,7 @@ def apply_github_reply(body):
         if job_id:
             target = JOBS.get(job_id)
             if target is not None and github_gate_open(target):
+                target["github_match"] = "by job id"
                 clear_github_gate(target, f"reply for {job_id}", body)
                 return True
             print(f"  github reply names job {job_id!r}, which is not waiting", flush=True)
@@ -820,13 +1147,25 @@ def apply_github_reply(body):
             print("  github ack arrived with nothing waiting", flush=True)
             return False
         # A bare ack releases the job that has been waiting longest. Refusing to
-        # guess sounded safer and was worse: the counterpart sends acks without a
-        # job id, so the first time two jobs queued up an ack was discarded and
-        # the job would have waited forever. Oldest-first matches the order the
-        # searches were published in, which is the order they get answered.
+        # guess sounded safer and was worse: an ack with no job id would be
+        # discarded and the job would wait forever. Oldest-first matches the
+        # order the searches were published in.
+        #
+        # **Since 2026-10-14 the counterpart sends the job id on every reply**,
+        # so reaching this branch at all is a regression on their side rather
+        # than business as usual. With one gate open the guess is still right.
+        # With several it is a coin toss, so the job carries a mark saying the
+        # match was guessed and the writer is told to say so in the note.
         waiting.sort(key=lambda j: j.get("created", 0))
         target = waiting[0]
         extra = f", {len(waiting) - 1} still waiting" if len(waiting) > 1 else ""
+        if len(waiting) > 1:
+            target["github_match"] = "guessed"
+            print(f"  WARNING: github reply carried no job id and {len(waiting)} gates "
+                  f"were open; released {target['id']} by age, which may be the wrong "
+                  f"one. The counterpart agreed to send the job id.", flush=True)
+        else:
+            target["github_match"] = "guessed-unambiguous"
         clear_github_gate(target, f"bare ack, oldest of {len(waiting)} waiting{extra}", body)
         return True
 
@@ -891,12 +1230,84 @@ def _client_name(v):
 SEARCH_SOURCES = {"job-decision", "general-vollna-search", "vollna-search"}
 
 
+# The client's own screening questions, which the general vollna search sends
+# alongside the posting. **Optional**: a post that asks nothing carries none of
+# these keys at all, so every reader of them has to cope with the field being
+# absent rather than empty. The producer's exact spelling is not fixed, so all
+# the plausible ones are accepted and normalised onto `screeningQuestions`.
+SCREENING_KEYS = ("screeningQuestions", "screening_questions", "screening",
+                  "screeningQuestion", "questions")
+
+# "1. ", "2) ", "- ", "Q1: " — list furniture a producer may leave on a question.
+SCREENING_BULLET = re.compile(r"^(?:[-*•–]\s*|\(?\d{1,2}[.)]\s*|Q\s*\d{1,2}\s*[.):]\s*)")
+
+
+def screening_text(value):
+    """The client's screening questions as plain text, one question per line.
+
+    The rest of the server already has a shape for these: `job["screening"]` is
+    text and `/screening_request` splits it on newlines, so this collapses
+    whatever the feed sent into exactly that. Three shapes have to survive,
+    because a producer sending fields is free to choose any of them: a list of
+    strings, a list of objects where the question is under `question`, `text`,
+    `q` or `title`, and one block of text with a question per line.
+
+    List furniture is stripped, since "1. Have you done this?" is the question
+    numbered by the producer rather than part of what the client asked. Blank
+    entries and duplicates are dropped, so a trailing empty element in the
+    array cannot become an empty question for somebody to answer.
+    """
+    if value is None:
+        return ""
+    items = []
+    if isinstance(value, str):
+        items = value.splitlines()
+    elif isinstance(value, dict):
+        # {"questions": [...]} or {"1": "...", "2": "..."}
+        inner = value.get("questions")
+        if inner is not None:
+            return screening_text(inner)
+        items = [value[k] for k in sorted(value)]
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            if isinstance(v, dict):
+                v = (v.get("question") or v.get("text") or v.get("q")
+                     or v.get("title") or "")
+            items.append(v)
+    else:
+        items = [value]
+    out = []
+    for raw in items:
+        # One question is one line, whatever whitespace the producer used.
+        q = " ".join(_as_text(raw).split())
+        q = SCREENING_BULLET.sub("", q).strip()
+        if q and q not in out:
+            out.append(q)
+    return "\n".join(out)
+
+
+def body_screening(body):
+    """The screening questions on a job body, or "" when the post asked none."""
+    if not isinstance(body, dict):
+        return ""
+    for key in SCREENING_KEYS:
+        if body.get(key):
+            text = screening_text(body[key])
+            if text:
+                return text
+    return ""
+
+
 def _normalise_job_body(body):
     if not isinstance(body, dict):
         return body
     src = str(body.get("source", "")).lower()
     if str(body.get("type", "")).lower() != "job-decision" and src not in SEARCH_SOURCES:
-        return body
+        # Not a search row, so nothing else here applies — but if some other
+        # producer ever sends screening questions they are still the client's
+        # questions, and they cost nothing to carry.
+        scr = body_screening(body)
+        return {**body, "screeningQuestions": scr} if scr else body
     out = dict(body)
     for src, dst in DECISION_KEYS.items():
         if src in out and not out.get(dst):
@@ -908,6 +1319,14 @@ def _normalise_job_body(body):
             out[dst] = v
     out["type"] = "job"
     out["source"] = "search"
+    # The client's screening questions, when the post had any. Normalised onto
+    # one key in one shape here so that nothing downstream has to know which
+    # spelling the producer used or whether it sent a list or a block of text.
+    scr = body_screening(out)
+    if scr:
+        out["screeningQuestions"] = scr
+    else:
+        out.pop("screeningQuestions", None)      # an empty field is no field
     name = _client_name(out.get("clientName"))
     if name:
         out["clientName"] = name
@@ -918,6 +1337,24 @@ def _normalise_job_body(body):
 
 # The marks the analyzer may put on a job, per analyzer-rule.md step 1.
 STACK_MARKS = ("Data", "AI", "ML", "Full", "Crypto")
+
+
+# A stack that is only `Full` is dropped. On the user's instruction of
+# 2026-10-14: plain web and application work with no data, AI, ML or crypto
+# angle to it is commodity work, and nothing here differentiates a bid on it.
+# An empty stack was already a drop, so there are now two ways to get one.
+FULL_ONLY = frozenset({"Full"})
+
+
+def stack_is_dropped(stack):
+    """True when these marks mean the row goes.
+
+    Two cases: no mark at all, which means no engineer here can do the work;
+    and `Full` on its own, which means they could but it is not worth a
+    Connect. Both delete the row, so be sure before posting either.
+    """
+    marks = frozenset(m for m in (stack or []) if m in STACK_MARKS)
+    return (not marks) or marks == FULL_ONLY
 
 
 def person_for_stack(stack):
@@ -946,7 +1383,9 @@ def person_for_stack(stack):
     guess and the choice cannot drift between one job and the next.
     """
     marks = {m for m in (stack or []) if m in STACK_MARKS}
-    if not marks:
+    # A dropped row has no person, and `Full` on its own is now a drop, so it
+    # resolves to nobody rather than to Connor as it used to.
+    if stack_is_dropped(marks):
         return ""
     if "Crypto" in marks:
         return "Zachary"
@@ -1044,6 +1483,13 @@ def parse_labelled_body(text):
         "rating": "clientRating", "reviews": "clientReviews",
         "payment verified": "clientPaymentVerified", "spent": "clientSpent",
         "registered": "clientRegistered",
+        # Optional, and the labelled shape is where the continuation rule earns
+        # its keep: the questions arrive as the lines under the label, one per
+        # line, and land in this one field for screening_text to split.
+        "screening questions": "screeningQuestions",
+        "screening question": "screeningQuestions",
+        "screening": "screeningQuestions",
+        "questions": "screeningQuestions",
     }
     out, current = {}, None
     for raw in text.splitlines():
@@ -1066,8 +1512,50 @@ def parse_labelled_body(text):
             if line:
                 out["Job title"] = line
                 break
+    out = _unswallow_title(out)
     if out:
         out.setdefault("source", "general-vollna-search")
+    return out
+
+
+# A title is one line. Anything longer means the continuation rule above ran
+# away with the posting.
+TITLE_SANE_CHARS = 200
+
+
+def _unswallow_title(out):
+    """Put the posting back where it belongs when the title ate it.
+
+    The continuation rule is what lets a description run over many lines: a
+    line that is not itself a known label extends the field above it. When the
+    producer sends the body straight after `Job title:` with no
+    `Job description:` in front of it, every one of those lines lands in the
+    title instead, and the description is left empty or a stub.
+
+    Seen on 2026-10-14, queue row 692: a 5038-character title across 74 lines
+    carrying the whole posting, the project info and the work history, beside a
+    13-character description reading "Role Overview". The row could not be
+    analysed at all.
+
+    The fix keeps the first line as the title and hands the rest to the
+    description. Nothing is discarded: a stub description is kept and appended,
+    because a fragment the producer sent is still the producer's text.
+    """
+    title = str(out.get("Job title") or "")
+    if len(title) <= TITLE_SANE_CHARS or "\n" not in title:
+        return out
+    first, _, rest = title.partition("\n")
+    rest = rest.strip()
+    if not rest:
+        return out
+    stub = str(out.get("Job description") or "").strip()
+    body = rest
+    if stub and stub not in rest:
+        body = f"{rest}\n\n{stub}"
+    out["Job title"] = first.strip()[:200]
+    out["Job description"] = body
+    print(f"  malformed row repaired: title held {len(title)} chars, "
+          f"moved {len(rest)} of them into the description", flush=True)
     return out
 
 
@@ -1259,6 +1747,11 @@ def relay_pull(wait=0.0):
                         "sender": msg.get("sender", ""), "ts": msg.get("ts", time.time()),
                         "body": body,
                         "client_name": _client_name(body.get("clientName")),
+                        # The client's screening questions, when the feed sent
+                        # them. Kept on the row as well as in the body so the
+                        # card can say there are some and /api/generate can
+                        # hand them to the job without re-deriving them.
+                        "screening": body_screening(body),
                         "used": False,
                         # The analyzer fires on arrival for the search feed only,
                         # per analyzer-rule.md. Other alerts are not analysed.
@@ -1290,6 +1783,20 @@ def relay_pull(wait=0.0):
     # gets instead is the *analysed* job, from telegram_job_analysed, which
     # fires once the verdict exists rather than the moment a row lands.
     return len(kept)
+
+
+def _row_write_state(item):
+    """Writing or written, and by whom, for one queue row."""
+    job = JOBS.get(item.get("job_id", "")) or {}
+    if not job:
+        return {"write_state": "", "write_by": ""}
+    if str(job.get("proposal") or "").strip():
+        return {"write_state": "written",
+                "write_by": job.get("written_by") or job.get("initiator") or ""}
+    if job.get("status") in ("working", "revising"):
+        return {"write_state": "writing",
+                "write_by": job.get("writing_by") or job.get("initiator") or ""}
+    return {"write_state": "", "write_by": ""}
 
 
 def queue_items():
@@ -1331,6 +1838,10 @@ def queue_items():
             # otherwise. Without it the two states looked identical.
             "analysing_since": item.get("analysing_since"),
             "has_jd": bool(_as_text(b.get("description")).strip()),
+            # The client's screening questions, if the post asked any. The text
+            # travels with the row because it is short and a person looking at
+            # the card wants to know the questions exist before pressing Write.
+            "screening": item.get("screening") or body_screening(b),
             # Just the count, so the row stays small. The entries themselves are
             # fetched per item when the button is pressed.
             "work_history": (parse_work_history(b.get("description")) or {}).get("count"),
@@ -1342,6 +1853,12 @@ def queue_items():
             "job_id": item.get("job_id", ""),
             "job_status": (JOBS.get(item.get("job_id", ""), {}) or {}).get("status", ""),
             "has_proposal": bool((JOBS.get(item.get("job_id", ""), {}) or {}).get("proposal")),
+            # What the card shows, and who did it. "writing" while somebody
+            # holds the job, "written" once a proposal exists, "" before
+            # anything started. The second half is the point: a person looking
+            # at the queue wants to know whether the writer or they themselves
+            # are on it, so two sessions never duplicate a letter.
+            **_row_write_state(item),
         })
     out.sort(key=lambda r: r["seq"])      # newest at the bottom
     return out
@@ -1497,10 +2014,30 @@ def queue_jd(item):
 
 
 def pull_loop():
-    """Hold a request open on the relay, so a new job arrives here at once."""
+    """Hold a request open on the relay, so a new job arrives here at once.
+
+    This is the **bringer**, and it is the one role that really runs in this
+    process. Paused or stopped, it does not poll at all: no new rows arrive
+    until it is started again, which is the point of having the button.
+    """
     while True:
+        allowed = worker_may_run("bringer")
+        if not allowed["run"]:
+            worker_set("bringer", current="",
+                       note=f"not polling ({allowed['reason']})",
+                       last_seen=time.time())
+            time.sleep(5)
+            continue
         try:
-            relay_pull(wait=25)
+            worker_set("bringer", current="holding the relay poll",
+                       last_seen=time.time(), note="")
+            kept = relay_pull(wait=25)
+            if kept:
+                # Held just long enough for the panel to show it: the next loop
+                # puts it back to holding the poll.
+                worker_set("bringer",
+                           current=f"bringing {kept} job{'' if kept == 1 else 's'}",
+                           last_seen=time.time())
         except Exception as exc:
             with RELAY_STATE_LOCK:
                 RELAY_STATE["last_error"] = str(exc)[:300]
@@ -1771,6 +2308,72 @@ class Handler(BaseHTTPRequestHandler):
                     "model": MODEL,
                 },
             )
+        if path == "/api/stats":
+            # The three counts the Profile tab shows above the workers. Computed
+            # here rather than in the page so the definitions live in one place:
+            # what counts as a source, as analysed, as written.
+            rows = queue_items()
+            analysed = [r for r in rows if r.get("analysis")]
+
+            def _src(r):
+                return str(r.get("source") or "").lower() or "(none)"
+
+            def _dec(r):
+                return str(r.get("qualification") or "").lower()
+
+            src = {}
+            for r in rows:
+                src[_src(r)] = src.get(_src(r), 0) + 1
+            dec = {}
+            for r in analysed:
+                dec[_dec(r)] = dec.get(_dec(r), 0) + 1
+            with JOBS_LOCK:
+                written = [j for j in JOBS.values() if str(j.get("proposal") or "").strip()]
+                boosted = [j for j in written if str(j.get("when") or "").strip()]
+                n_written, n_boost = len(written), len(boosted)
+            known = ("search", "vollna", "upwork")
+            return self._send(200, {
+                "queue": {
+                    "total": len(rows),
+                    "search": src.get("search", 0),
+                    "vollna": src.get("vollna", 0),
+                    "upwork": src.get("upwork", 0),
+                    "other": sum(v for k, v in src.items() if k not in known),
+                },
+                "analysed": {
+                    "total": len(analysed),
+                    "bid": dec.get("bid", 0),
+                    "manual_check": dec.get("manual check", 0),
+                    "skip": dec.get("skip", 0),
+                    "pending": len(rows) - len(analysed),
+                },
+                "written": {
+                    "total": n_written,
+                    "boosted": n_boost,
+                    "unboosted": n_written - n_boost,
+                },
+            })
+
+        if path == "/api/workers":
+            rows = []
+            for role in WORKER_ROLES:
+                w = worker_get(role)
+                w["may_run"] = worker_may_run(role)["run"]
+                w["attached"] = worker_attached(role, w)
+                # What the panel shows. "off" when nothing is behind the role,
+                # whatever intent is stored against it.
+                w["status"] = worker_status(role, w)
+                # What the panel prints beside the name: the role's own verb
+                # while it is working, "waiting" while it is running but idle.
+                w["activity"] = worker_activity(role, w)
+                # Outstanding until the session echoes the seq back. This is
+                # what answers "did it hear me?" without guessing.
+                w["command_pending"] = bool(
+                    int(w.get("command_seq") or 0) > int(w.get("acked_seq") or 0))
+                w["kind"] = "thread" if role == "bringer" else "session"
+                rows.append(w)
+            return self._send(200, {"workers": rows})
+
         if path == "/api/relay/status":
             # What the relay allocated this project, read off the live poll
             # rather than a stored file. "channels" is what it has actually
@@ -1832,7 +2435,30 @@ class Handler(BaseHTTPRequestHandler):
             # One thing at a time. A session asks this before starting
             # anything; `busy` true means finish that first.
             busy = work_in_flight()
-            return self._send(200, {"busy": bool(busy), "work": busy})
+            return self._send(200, {"busy": bool(busy), "work": busy,
+                                    "analysis": work_in_flight("analysis"),
+                                    "proposal": work_in_flight("proposal")})
+
+        m = re.fullmatch(r"/api/queue/(\d+)/writable", path)
+        if m:
+            # Asked before a write starts, so the button can warn instead of
+            # quietly creating a second job for a post somebody is already on.
+            item = queue_get(m.group(1))
+            if not item:
+                return self._send(404, {"error": "no such queue item"})
+            st = _row_write_state(item)
+            out = {"seq": item["seq"], **st, "job_id": item.get("job_id", "")}
+            if st["write_state"] == "writing":
+                out.update(ok=False, reason="in progress",
+                           message=f"This job is being written by the "
+                                   f"{st['write_by'] or 'another session'} right now.")
+            elif st["write_state"] == "written":
+                out.update(ok=True, confirm=True,
+                           message=f"This job was already written by the "
+                                   f"{st['write_by'] or 'another session'}. Write it again?")
+            else:
+                out.update(ok=True, confirm=False, message="")
+            return self._send(200, out)
 
         if path == "/api/queue/analyzing":
             return self._send(200, {"seqs": [
@@ -1896,6 +2522,10 @@ class Handler(BaseHTTPRequestHandler):
                 ids = [j["id"] for j in JOBS.values() if j["status"] == "queued"]
             return self._send(200, {"ids": ids})
         if path == "/api/jobs/next":
+            # Whoever asks gets the oldest queued job. Fine when one session
+            # writes; a race once two do, because neither can say which job it
+            # means and each can take the other's. Prefer the addressed claim
+            # below, POST /api/job/<id>/claim, whenever the id is known.
             with JOBS_LOCK:
                 pending = sorted(
                     (j for j in JOBS.values() if j["status"] == "queued"),
@@ -1905,7 +2535,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, {"job": None})
                 job = pending[0]
                 job["status"] = "working"
-                job["note"] = "Claude Code is writing it"
+                job["claimed_by"] = str(data.get("by") or "").strip()[:40] if isinstance(data, dict) else ""
+                job["writing_by"] = who_wrote(job["claimed_by"]) or job.get("initiator") or "user"
+                job["note"] = f"writing by {job['writing_by']}"
                 save_job(job)
             return self._send(200, {"job": job})
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})", path)
@@ -1957,6 +2589,13 @@ class Handler(BaseHTTPRequestHandler):
                             "status": job["status"]})
                     job["proposal"] = text
                     job["status"] = "done"
+                    # On progress -> written, and by whom. Falls back through
+                    # the claim and then the initiator, so a result posted
+                    # without a claim still attributes correctly.
+                    job["written_by"] = (who_wrote(data.get("by"))
+                                         or job.get("writing_by")
+                                         or job.get("initiator") or "user")
+                    job["writing_by"] = ""
                     # A retry that works clears the failure, so a job that came
                     # back empty once and was then written does not keep a mark
                     # saying it failed.
@@ -1992,6 +2631,9 @@ class Handler(BaseHTTPRequestHandler):
                 save_job(job)
             # Sent outside the lock: a Telegram round trip must not hold up
             # every other request, and the job is already stored by now.
+            # The person's turn is over, so the writer may pick up again. Keyed
+            # on the job id, so an unrelated job finishing does not free it.
+            writer_resume_after_user(m.group(1))
             if finished is not None:
                 if finished.get("dropped") or job_was_dropped(finished["id"]):
                     print(f"  telegram skipped: job {finished['id']} was dropped, "
@@ -2170,6 +2812,64 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(502, {"error": str(exc)})
             return self._send(200, {"ok": True, **out})
 
+        m = re.fullmatch(r"/api/worker/(bringer|analyzer|writer)/"
+                         r"(start|pause|resume|stop|heartbeat|error)", path)
+        if m:
+            role, action = m.group(1), m.group(2)
+            if action == "heartbeat":
+                # A session saying it is alive and what it is on. Returns what
+                # it is allowed to do, so one call both reports and asks.
+                #
+                # `ack` is the session saying which command it has seen. Send
+                # back the `command_seq` from the previous reply and the panel
+                # can say the order was heard; omit it and the panel says it is
+                # still outstanding, which is the honest reading.
+                fields = {"last_seen": time.time(),
+                          "current": str(data.get("current") or "")[:160]}
+                if "note" in data:
+                    fields["note"] = str(data.get("note"))[:200]
+                if data.get("ack") is not None:
+                    try:
+                        fields["acked_seq"] = int(data["ack"])
+                        fields["acked_at"] = time.time()
+                    except (TypeError, ValueError):
+                        pass
+                worker_set(role, **fields)
+                w = worker_get(role)
+                return self._send(200, {
+                    "ok": True, "status": worker_status(role),
+                    # Echo these back so a session can tell a command was
+                    # issued even when the state it landed on is unchanged.
+                    "command_seq": w.get("command_seq", 0),
+                    "last_command": w.get("last_command", ""),
+                    **worker_may_run(role)})
+            if action == "error":
+                out = worker_raise_error(role, data.get("error") or "unspecified",
+                                         data.get("current") or "")
+                return self._send(200, {"ok": True, "worker": out,
+                                        "status": worker_status(role)})
+            state = {"start": "running", "resume": "running",
+                     "pause": "paused", "stop": "idle"}[action]
+            before = worker_get(role)
+            fields = {"state": state, "note": f"{action} pressed",
+                      "command_seq": int(before.get("command_seq") or 0) + 1,
+                      "last_command": action, "command_at": time.time()}
+            if state != "running":
+                fields["current"] = ""
+            if action in ("start", "resume"):
+                # Starting clears a yield and clears an error: the person is
+                # explicitly asking for it back, having presumably looked. It
+                # also clears `current`, since a worker being started is not
+                # part-way through whatever it was last doing.
+                fields["yielded_to"] = ""
+                fields["error"] = ""
+                fields["current"] = ""
+            out = worker_set(role, **fields)
+            print(f"  worker {role}: {action} -> {state}", flush=True)
+            return self._send(200, {"ok": True, "worker": out,
+                                    "status": worker_status(role),
+                                    "may_run": worker_may_run(role)["run"]})
+
         if path == "/api/relay/enrol":
             # Restores what went with proposal_bridge.py. Enrolment only: it
             # reads the worker id and token out of .env, hands them to the
@@ -2268,7 +2968,7 @@ class Handler(BaseHTTPRequestHandler):
             if "stack" in data:
                 item["stack"] = [s for s in (str(x).strip() for x in (data.get("stack") or []))
                                  if s in STACK_MARKS]
-                item["dropped"] = not item["stack"]
+                item["dropped"] = stack_is_dropped(item["stack"])
                 # The marks decide the person, so it is settled here rather
                 # than being judged again when the job is created. A dropped
                 # row resolves to "" because it is never written.
@@ -2306,9 +3006,11 @@ class Handler(BaseHTTPRequestHandler):
             if item.get("analysis"):
                 return self._send(409, {"error": "already analysed",
                                         "analysis": item["analysis"]})
-            busy = work_in_flight()
-            if busy and not (busy.get("kind") == "analysis"
-                             and busy.get("seq") == item["seq"]):
+            # Only another *analysis* blocks this. A proposal being written
+            # no longer does: the analyzer and a writer are different jobs in
+            # different sessions and have no reason to wait for each other.
+            busy = work_in_flight("analysis")
+            if busy and busy.get("seq") != item["seq"]:
                 # The whole point of the claim: the next piece of work does not
                 # start until this one is done.
                 return self._send(409, {"error": "something else is in flight; "
@@ -2441,10 +3143,12 @@ class Handler(BaseHTTPRequestHandler):
                 save_job(job)
                 print(f"  job {job['id']} wants {len(asked)} screening answers "
                       f"(proposal stays as written)", flush=True)
+            writer_yield_to_user("screening answers", m.group(1))
             return self._send(200, {"ok": True, "questions": len(asked)})
 
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/screening_answers", path)
         if m:
+            writer_resume_after_user(m.group(1))
             with JOBS_LOCK:
                 job = JOBS.get(m.group(1))
                 if not job:
@@ -2656,6 +3360,8 @@ class Handler(BaseHTTPRequestHandler):
                 # from double-firing, which is what the flag was added for.
                 job["notified_done"] = False
                 save_job(job)
+            # Outside the lock, like every other side effect here.
+            writer_yield_to_user("rewrite", m.group(1))
             return self._send(200, {"ok": True})
 
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/message", path)
@@ -2685,6 +3391,34 @@ class Handler(BaseHTTPRequestHandler):
                     save_job(job)
             return self._send(200, {"ok": True, "status": job["status"]})
 
+        m = re.fullmatch(r"/api/job/([0-9a-f]{8})/claim", path)
+        if m:
+            # Take one named job. Two sessions writing at once need this: the
+            # oldest-queued claim cannot express "the job I was asked for", so
+            # each could take the other's work. Refused if somebody already
+            # holds it, which is what makes the two safe to run side by side.
+            with JOBS_LOCK:
+                job = JOBS.get(m.group(1))
+                if not job:
+                    return self._send(404, {"error": "no such job"})
+                if job["status"] in ("working", "revising"):
+                    return self._send(409, {
+                        "error": "already claimed",
+                        "status": job["status"],
+                        "claimed_by": job.get("claimed_by", "")})
+                if job["status"] == "done":
+                    return self._send(409, {"error": "already written",
+                                            "status": "done"})
+                job["status"] = "working"
+                job["claimed_by"] = str(data.get("by") or "").strip()[:40]
+                # Fall back to who asked for the job when the claim did not say.
+                job["writing_by"] = who_wrote(data.get("by")) or job.get("initiator") or "user"
+                job["note"] = f"writing by {job['writing_by']}"
+                save_job(job)
+            print(f"  job {job['id']} claimed by {job.get('claimed_by') or 'an unnamed session'}",
+                  flush=True)
+            return self._send(200, {"ok": True, "job": job})
+
         m = re.fullmatch(r"/api/job/([0-9a-f]{8})/note", path)
         if m:
             with JOBS_LOCK:
@@ -2697,6 +3431,10 @@ class Handler(BaseHTTPRequestHandler):
 
         guide_id = (data.get("guide") or "").strip()
         person_id = (data.get("person") or "").strip()
+        # Who pressed it. The UI sends nothing and so counts as the person; the
+        # writer session sends initiator "worker" for jobs it creates itself,
+        # which must not make it stand down for its own work.
+        by_user = str(data.get("initiator") or "user").lower() != "worker"
 
         # Every job comes off a queue row, and there is no other way in. A row
         # carries the posting, the Upwork link, the real title and the client
@@ -2725,6 +3463,19 @@ class Handler(BaseHTTPRequestHandler):
                        or queued.get("body", {}).get("url") or "")
         data["client"] = queued.get("client_name", "")
         data["title"] = (queued.get("body", {}).get("title") or "").strip()
+        # The client's own screening questions, when the feed sent them with
+        # the post. They reach the job exactly as typed-in ones do, so the
+        # writer answers them and they are archived with the letter. A person
+        # ticking the box and typing their own still wins: this only fills the
+        # field when the request left it empty.
+        if not str(data.get("screening") or "").strip():
+            row_scr = (queued.get("screening")
+                       or body_screening(queued.get("body") or {}))
+            if row_scr:
+                data["screening"] = row_scr
+                print(f"  seq {queued['seq']} carries "
+                      f"{len(row_scr.splitlines())} screening question(s) from the feed",
+                      flush=True)
 
         if path in ("/api/prompt", "/api/generate"):
             if not jd.strip():
@@ -2745,7 +3496,10 @@ class Handler(BaseHTTPRequestHandler):
                               data.get("title") or "", data.get("notes") or "",
                               data.get("guide_mode") or "auto",
                               data.get("country") or "",
-                              data.get("person_mode") or "auto")
+                              data.get("person_mode") or "auto",
+                              data.get("initiator") or "user")
+                if by_user:
+                    writer_yield_to_user("proposal", job["id"])
                 if queued:
                     queued["used"] = True
                     queued["job_id"] = job["id"]
@@ -2781,6 +3535,9 @@ def main():
     load_threads()
     purge_old_jobs()          # catch up if the server was down at the boundary
     threading.Thread(target=purge_loop, daemon=True).start()
+    load_workers()
+    print("  workers: " + ", ".join(f"{r}={worker_get(r)['state']}"
+                                    for r in WORKER_ROLES), flush=True)
     relay_seed_channels()
     threading.Thread(target=pull_loop, daemon=True).start()
     threading.Thread(target=boost_check_loop, daemon=True).start()

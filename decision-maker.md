@@ -133,9 +133,9 @@ the pitch.
 **Two things are chosen per job, and this is the one that comes first.** The guide is decided
 after the repository search, because the choice turns on what the search returned. The person has
 to be decided *before* it, because **whose pool gets searched depends on who is bidding**: a
-Connor job searches `profiles/connor-work-pool.md` first and only falls through to public GitHub
-on a miss, while a Zachary job goes straight to the public search and the gate. Decide the person,
-then run the search described in `github-researcher.md`.
+Connor job searches `profiles/connor-work-pool.md` and **nothing else, ever** — no public search,
+no publish, no gate — while a Zachary job goes straight to the public search and the gate. Decide
+the person, then run whichever of the two that makes it.
 
 **Only decide when the job says you may.** Every job carries `person_mode` alongside
 `guide_mode`. **`manual` means the user picked the person themselves and this section is
@@ -159,7 +159,7 @@ nothing else:
 | --- | --- |
 | Named a sector one of them owns — check the industry classification in a work pool before guessing | whoever owns it |
 | Wants something clickable today: a live demo, a deployed site, a working product | **Connor**, who has ten verified demos and six live sites |
-| Salesforce, CPG, or a consulting engagement with a client-facing half | **Mario** |
+| Salesforce or CPG | **Zachary** — both are confirmed corrections to his resume, see `profiles/Zachary.md`. **Not Mario**, who has neither |
 | Data, scraping, pipelines, ML, or anything that wants a repository behind it | **Zachary**, whose pool is the one the github gate answers against |
 | Genuinely ambiguous, and the answer would change the letter materially | **ask in the panel**, and draft for the likelier one meanwhile |
 

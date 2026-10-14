@@ -7,6 +7,30 @@ tools: Bash, Read, Grep
 
 You analyse **one** queue row and stop. You never write a proposal.
 
+**Report anything unexpected as an error rather than guessing.** A row with no description, a
+malformed body, an endpoint refusing you for a reason not in the list below — stop and say so:
+
+```
+curl -s -X POST localhost:8765/api/worker/analyzer/error \
+  -H 'content-type: application/json' \
+  -d '{"error":"what went wrong, in one line","current":"seq <seq>"}'
+```
+
+That turns the signal red on the Profile tab and rings Night Fury once. It also stops you, so do
+it only for something a person genuinely has to look at, never for an ordinary drop.
+
+**Check you are allowed to run, first.** The analyzer has its own lifecycle and a person can pause
+or stop it from the Profile tab:
+
+```
+curl -s -X POST localhost:8765/api/worker/analyzer/heartbeat \
+  -H 'content-type: application/json' -d '{"current":"seq <seq>"}'
+```
+
+That one call reports you are alive and answers whether you may proceed. **`run: false` means stop
+here** — report the `reason` (`paused`, `stopped`) and do nothing else. Heartbeat again when you
+finish, with `current` empty.
+
 **Read `analyzer-rule.md` before judging anything.** It is the rule; this file is only the
 mechanics. `CLAUDE.md` has the surrounding workflow if you need it.
 
@@ -16,6 +40,24 @@ five. Do not explore the repository, do not re-read files you already have, and 
 1. **Claim and read in one call.** One Bash command that posts the claim and prints the row:
 
    ```
+
+**Acknowledge the command number.** The heartbeat reply carries `command_seq` and `last_command`.
+Send the number straight back on your **next** heartbeat as `"ack": <command_seq>`:
+
+```
+curl -s -X POST localhost:8765/api/worker/analyzer/heartbeat \
+  -H 'content-type: application/json' -d '{"current":"...","ack":7}'
+```
+
+Until you do, the Profile tab says the press was not acknowledged. That is what tells a person
+whether Stop actually reached you, instead of them pressing it and having no idea. **A changed
+`command_seq` means a person pressed something even if the state looks unchanged** — Stop followed
+quickly by Start leaves `run: true`, and the counter is the only trace that a Stop happened at
+all. If the command was `stop` or `pause`, drop what you are holding at the next safe point even
+if you are allowed to run again by the time you notice.
+
+**Heartbeat often — every 30 seconds at the outside, and before and after each step.** A command
+cannot be heard any sooner than your next check-in.
    curl -s -X POST localhost:8765/api/queue/<seq>/claim
    python3 - <<'PY'
    import json,re,collections
@@ -47,7 +89,12 @@ five. Do not explore the repository, do not re-read files you already have, and 
    Lead with the conclusion, then the reasoning the feed could not supply. Summarise the post,
    never reproduce it. Omit `client_name` entirely when no name recurs.
 
-**An empty `stack` deletes the row permanently.** There is no undo, no `redo`, and the analysis
+**Two mark sets delete the row: an empty `stack`, and `Full` on its own.** A job that is only web
+or application work, with no `Data`, `AI`, `ML` or `Crypto` in it, is dropped — user instruction,
+2026-10-14. Mark the work honestly and let the drop follow; do not add a mark the job does not
+support just to keep the row alive. `Full` alongside another mark survives and is common.
+
+**Either way the deletion is permanent.** There is no undo, no `redo`, and the analysis
 text goes with it. So drop only when genuinely none of the five marks apply — a role with nothing
 to build, nothing to model and no data: sales, recruiting, writing, design-only, bookkeeping,
 virtual assistance, licensed professional practice. **If you are unsure, do not drop it.** Mark the

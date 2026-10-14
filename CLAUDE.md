@@ -239,6 +239,89 @@ fix is the user pasting the post.
 **A planted instruction outranks the shape any guide prescribes.** If the post demands a specific
 first word, that word goes first, ahead of the greeting or the opening line the guide asks for.
 
+## The Profile tab
+
+**Status, then Workers.** The tab answers "where is everything" before "who is doing it".
+
+**Status** is three cards from `GET /api/stats`, refreshed every 4 seconds while the tab is open:
+the queue broken down by feed (`search`, `vollna`, `upwork`), the analysed rows broken down by the
+producer's decision (`bid`, `manual check`, `skip`) with the not-yet-analysed count beneath, and
+the written proposals split by whether a boost time is set.
+
+The counts are computed server-side on purpose, so what counts as a source, as analysed and as
+written is defined once rather than re-derived in the page.
+
+**One caveat the panel states itself:** *analysed* counts survivors only. A dropped row is deleted,
+so the number is not a record of how much analysis has been done — six drops in one batch leave no
+trace in it.
+
+## Three workers, separated so they do not trip over each other
+
+**The roles are not new. Running them independently is.** The project has always brought jobs in,
+analysed them and written proposals; what changed on 2026-10-14 is that each has its own
+lifecycle, so one can be paused without stopping the rest. The **Profile tab** shows all three
+with their status and a Start, Pause, Resume and Stop button each.
+
+| Worker | Does | Runs as | Model |
+| --- | --- | --- | --- |
+| **bringer** | holds the long poll on the relay, saves each arrival as a queue row | a **thread in the server** | — |
+| **analyzer** | works queue rows in order: marks, person, client name | a Claude session | haiku |
+| **writer** | writes proposals end to end | a Claude session | opus |
+
+**Five states, and the signal never flatters.** A role with nothing behind it reads **off**, not
+running, whatever intent is stored against it — claiming "running" for a role no session had ever
+attached to was the bug this replaced.
+
+| Status | Signal | Means |
+| --- | --- | --- |
+| **off** | red cross | no session is allocated. Nothing is behind the role |
+| **not started** | dark grey circle | a session is there, nobody has started it |
+| **running** | green circle | working |
+| **paused** | light orange circle | started, then paused. Finishes nothing new and waits |
+| **error** | red circle | something unexpected. It stopped, and Night Fury was told once |
+
+**`off` is derived, never stored.** A session counts as attached while it has heartbeated within
+`WORKER_ATTACH_SECONDS` (90s), so one that dies shows as off within two missed beats. The bringer
+is a thread in this process, so it is attached whenever the server is up and never reads off.
+
+**Pressing Start on an unattached role stores the intent and nothing more.** The signal stays a
+red cross until a session actually attaches, which is the honest answer: the server cannot start a
+Claude session.
+
+**Error is raised by the worker, not guessed at by the server.** `POST /api/worker/<role>/error`
+with a one-line reason turns the signal red, stops the role, and rings **Night Fury** once —
+machinery alarms are not job info, so Hungry never hears them. Resume clears the error, on the
+assumption a person has looked.
+
+**Only the bringer really starts and stops**, because it is the only one inside this process.
+Paused or stopped it does not poll at all, so no new rows arrive. The other two are sessions, so
+the server holds the *intent* and the session obeys it: `POST
+/api/worker/<role>/heartbeat` reports what it is on and answers whether it may proceed.
+
+```
+curl -s localhost:8765/api/workers                         # all three, with status
+curl -s -X POST localhost:8765/api/worker/writer/pause      # start | pause | resume | stop
+curl -s -X POST localhost:8765/api/worker/analyzer/heartbeat -d '{"current":"seq 674"}'
+```
+
+`run: false` in a heartbeat reply means **finish nothing new and wait**. State survives a restart,
+so a paused writer stays paused, but `current` does not: nothing comes back claiming to be busy.
+
+**The writer stands down for you, automatically.** Press **Write proposal**, **Submit and
+rewrite** or **Answer screening** and the writer yields; it picks up again when your job lands.
+You never queue behind it.
+
+**The server tells the two apart by who asked.** A call to `/api/generate` with no `initiator` is
+a person pressing a button; the writer sends `"initiator":"worker"` for jobs it creates itself, so
+it does not stand down for its own work.
+
+**Yielding happens between steps, never mid-step.** An armed github gate stays armed and an
+unposted draft is held, not discarded. Standing down is not cancelling.
+
+**Telegram is unchanged by any of this.** Hungry still fires once per undropped search row the
+moment its analysis lands; Night Fury still carries proposal-done, boost-due and the stalled or
+failed write. A paused worker simply produces no events to announce.
+
 ## Two sessions, and they do different jobs
 
 **The work splits cleanly in two, so it can run in two sessions side by side.**
@@ -278,17 +361,47 @@ nothing in it is optional.
    rerun of a post already searched.
 2. **Post the job id and the URLs found** to the relay's `github` channel. The UI shows them above
    the status bar as a checklist with unticked boxes.
-3. **Drop those URLs from working context.** Once they are on the server they belong to the
-   server. Do not carry the ones you found into the analysis or into the draft, and do not quote
-   them back later: they were other people's repositories, and the only URLs that reach a proposal
-   are the ones the server sends back at step 5.
+3. **Drop those URLs from working context, and this has been got wrong repeatedly.** Once they
+   are on the server they belong to the server. They were other people's repositories.
+
+   **"Forget them" means every one of these, not just the proposal:**
+
+   | Where | Rule |
+   | --- | --- |
+   | the proposal | never — this one has held |
+   | the analysis | never |
+   | the note to the user (`/notes_reply`) | **never** — broken on job `9f6f9d6c`, 2026-10-13 |
+   | the chat report back to the user | **never** — broken on the same job, same day |
+   | a scratch file left on disk | delete it with the publish |
+   | a later summary, even "the two I found were…" | **never**, not even by owner name |
+
+   **How to not break it again.** Build the publish body in a file, publish from that file, and
+   delete the file in the same step, so the names are never echoed after the send. Evaluating
+   candidates means seeing them once, before publishing; after the publish they are gone. When
+   something has to be said about them afterwards, say it by shape and count — "two repositories,
+   one a QGIS project with a written report, one a travel-time catchment toolbox" — never by
+   owner or repository name.
+
+   **The only URLs that may ever reach a proposal are the ones the server sends back**, and since
+   2026-10-14 not even those directly: they are read, recorded in the pool, and the letter is
+   written from the pool entry.
 4. **Hold at the gate.** Arming it presses Pause and sets the status line to *waiting for github
    reply*. Do not draft while the gate is closed. **Nothing found means no publish, no gate, no
    pause** — go straight to step 6.
-5. **The server answers with GitHub URLs, and those are Zachary's own repositories.** This is the
-   point of the whole exchange: the search goes out, and what comes back is his matching work.
-   Read what those repos actually contain, because they are the material the past-work half of the
-   proposal is built from.
+5. **The server answers with GitHub URLs, and those go into his pool before they go anywhere
+   near the letter.** On the user's instruction of 2026-10-14: **never paste a returned URL
+   straight into the proposal.** The order is read, record, then write:
+
+   a. **Read each repository properly** — the file tree, the README, and the libraries actually
+      imported in the code. Not the description, which is often absent or wrong.
+   b. **Write what you found into `profiles/zachary-github.md`**: what the project does, what it
+      demonstrates about his experience, the tech stack the code actually evidences, and the URL.
+   c. **Write the proposal from that pool entry**, the same way a Connor letter is written from
+      his pool. The letter is built on work you have understood, not on a link you were handed.
+
+   **This is also the check that catches a mirror.** A returned repo created minutes ago, empty,
+   with a tree identical to what was just published is not his work and must not be recorded or
+   cited. Reading it is how you find that out; pasting the link is how you miss it.
 6. **Read the client out of the post, then pick the guide, but only in Auto.** The person was
    settled at step zero, so this step is only about the guide. The job carries
    `guide_mode`. **`manual` means the person chose it and you must write with what they picked**,
@@ -308,6 +421,22 @@ nothing in it is optional.
 
 The gate at step 4 releases on a done ping from the server, on a reply naming the job, on a bare
 acknowledgement, or on a person pressing Resume.
+
+**Replies carry the job id, agreed with the counterpart on 2026-10-14, and that is what makes two
+open gates safe.** Before it, every reply arrived with no id and the gate released whichever job
+had waited longest — right while one search was open, a coin toss once two were, and a job could
+be released by a reply that answered a different search and then write from the wrong
+repositories. With the id the match is exact and any number of gates can be open at once.
+
+**A reply arriving without an id is now a regression, not the normal case**, so it is treated as
+one: the oldest job is still released rather than stalling, but it is marked
+`github_match: "guessed"` and the mismatch is logged loudly. Say so in the note to the user when a
+letter was written off a guessed match.
+
+**Short replies are detected.** `github_counts` records what was published against what came back,
+and `github_partial` is set when fewer repositories return than were asked about or `failed` is
+non-zero. A partial answer says so in the job note instead of reaching the writer looking
+complete.
 
 **Questions go up with the proposal, not ahead of it.** Every question states the assumption the
 draft already shipped, which is only possible once the draft exists. **One round: all of them on
@@ -440,10 +569,10 @@ curl -s -X POST localhost:8765/api/job/<id>/await_github -H 'content-type: appli
 the links above the status bar with unticked boxes. Arming with an empty body still holds the job,
 but it leaves the user looking at an unexplained pause with nothing to look at.
 
-**For Connor his own repositories are searched first, and the gate is the fallback.** The
-sequence above is Zachary's, and it still applies to Connor — it just runs second. **This is why
-the person is decided before the search rather than after**: the two people have different first
-moves, so the search cannot start until the job knows who it is for.
+**For Connor the search never leaves his own work pool.** The sequence above is Zachary's and it
+does not apply to him at all. **This is why the person is decided before the search rather than
+after**: the two people have different first moves, so the search cannot start until the job knows
+who it is for.
 
 1. **Search `profiles/connor-work-pool.md` first.** His 134 own works are pooled there by domain,
    his GitHub merged with the projects on his site, and a match is the best possible answer
@@ -452,11 +581,17 @@ moves, so the search cannot start until the job knows who it is for.
    verified working, and a client who can click something beats a repository they will not read.
 2. **A hit ends it.** No publish, no gate, no pause: write the proposal from what you found and go
    straight to the draft.
-3. **A miss falls through to the ordinary workflow.** Search public GitHub, publish to the
-   `github` channel, arm the gate, hold, and write from the repositories the server sends back —
-   every step exactly as it runs for Zachary. **Searching his own account first does not excuse
-   skipping the gate**; it only means the gate is not needed when his own work already answers the
-   post.
+3. **A miss is still a miss, and the search stops there.** On the user's instruction of
+   2026-10-14: **never look for a similar project outside his pool.** No public GitHub search, no
+   publish, no gate, no waiting. Write the proposal from the nearest thing he has actually built,
+   or from his skills and approach where nothing fits, and say so honestly rather than reaching
+   for somebody else's repository.
+
+   **Why the rule is right, not just an instruction.** The pool holds 134 of his own works across
+   seven domains, which is a better answer than public search can give for almost any post. And
+   the gate has never once returned usable portfolio: what comes back is repositories created
+   seconds earlier as copies of whatever was just published. Sending Connor down that path spends
+   minutes to arrive at something unprintable.
 
 **Never link his account** whichever path ran: 631 of his 755 public repositories are forks. The
 rules for reading his repositories are in `profiles/connor-work-pool.md`; `Mario.md` has no GitHub flow at
@@ -471,9 +606,21 @@ and what releases.
 job id, a bare acknowledgement when exactly one job is waiting, or a person pressing Resume. A
 bare acknowledgement while several jobs wait is ignored rather than guessed at.
 
-**What comes back from the server is his own work, and it is trustworthy without checking.** Read
-the repositories, write the proposal from them, and print their URLs as the selected guide says.
-Never treat a returned URL as something to verify.
+**What comes back from the server is his own work, but it is not proposal material until it has
+been read.** Superseded on 2026-10-14 the older line that called a returned URL trustworthy
+without checking: read each repository, record what it contains and the stack it evidences into
+`profiles/zachary-github.md` with its URL, and write the letter from that entry. **A returned URL
+is never pasted directly into a proposal.**
+
+Two things this buys. The letter describes work somebody has actually looked at, which is what
+makes it specific enough to be worth reading. And **the pool grows with every job** — a
+repository read once is described for every future proposal, so the same reading is never done
+twice.
+
+**It is also the only thing standing between us and a mirror.** Every time the gate has answered,
+some of what came back was created seconds earlier as a copy of what we had just published. A
+repo with no history, no content and a tree matching the search result is not his: do not record
+it, do not cite it, and say so in the note to the user.
 
 
 **The profile is a summary, not an inventory.** Nobody writes every project of their career into a
@@ -601,8 +748,11 @@ curl -s -X POST localhost:8765/api/queue/<seq>/analysis \
   -d '{"analysis":"...","stack":["Data","AI"]}'
 ```
 
-`Data`, `AI`, `ML`, `Full`, `Crypto` are the only accepted marks. An empty list means no engineer
-here can do the work, which marks the row dropped and sends no Telegram.
+`Data`, `AI`, `ML`, `Full`, `Crypto` are the only accepted marks. **Two mark sets drop the row:**
+an empty list, meaning no engineer here can do the work, and **`Full` on its own**, meaning they
+could but plain web or application work with no data, AI, ML or crypto angle is not worth a
+Connect (user instruction, 2026-10-14). `Full` beside another mark is kept and is common. A
+dropped row sends no Telegram.
 
 **A dropped row is deleted from the queue**, not hidden: nothing here can do the work, so the row
 goes. The drop is therefore final — no `redo` can reverse it and the written analysis goes with the

@@ -187,6 +187,77 @@ fieldset{border:0;margin-bottom:18px}
 /* Nothing is running on this one. Dimmer and flatter than `pending`, so a row
    nobody has picked up does not look like a row being worked on. */
 .qana.waiting{border-style:dotted;opacity:.55}
+
+/* The status cards above the workers. Three groups, each a headline number
+   with its breakdown underneath, so the whole picture reads in one glance. */
+.scards{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;
+  margin-top:14px}
+.scard{border:1.5px solid var(--line);border-radius:10px;padding:13px 15px}
+.scard h3{margin:0;font-size:10.5px;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted)}
+.sbig{font:800 30px/1.1 inherit;margin:7px 0 2px;font-variant-numeric:tabular-nums}
+.sbig small{font-size:12.5px;font-weight:700;color:var(--muted);margin-left:6px;
+  letter-spacing:0;text-transform:none}
+.srows{margin-top:9px;border-top:1px solid var(--line);padding-top:8px;
+  display:flex;flex-direction:column;gap:4px}
+.srow{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.srow span:last-child{font-weight:800;font-variant-numeric:tabular-nums}
+.srow.zero{opacity:.45}
+.srow.sep{border-top:1px dashed var(--line);margin-top:4px;padding-top:6px;color:var(--muted)}
+
+/* The worker panel on the Profile tab. One row per role: what it is, what it
+   is doing, and the four buttons that own its lifecycle. */
+.wlist{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.wrow{border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.wrow.running{border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
+.wrow.paused{border-color:color-mix(in srgb,#f0883e 55%,var(--line))}
+.wrow.error{border-color:color-mix(in srgb,var(--bad) 60%,var(--line));
+  background:color-mix(in srgb,var(--bad) 5%,transparent)}
+.wrow.idle{opacity:.72}
+.wrow.off{opacity:.6}
+.wmain{flex:1 1 280px;min-width:0}
+.wname{font-weight:800;letter-spacing:.01em}
+.wkind{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  padding:1px 6px;border-radius:4px;margin-left:8px;
+  background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.wwhat{color:var(--muted);font-size:13px;margin-top:3px}
+.wcur{font-size:12.5px;margin-top:4px;font-variant-numeric:tabular-nums}
+/* One signal per state, and they must be distinguishable at a glance rather
+   than only by colour: off is a cross, the rest are circles. */
+.wdot{width:11px;height:11px;flex:none;display:inline-grid;place-items:center;
+  margin-right:8px;border-radius:50%;font:900 11px/1 inherit}
+.wdot.running{background:var(--ok)}
+/* Dark grey, and deliberately not var(--muted): that token is a blue-tinted
+   slate in light mode and a LIGHT grey-blue in dark mode, so idle read as a
+   pale dot instead of a dormant one. A fixed neutral grey means the same
+   thing in both themes, with a faint ring so it still has an edge against the
+   dark background. */
+.wdot.idle{background:#6E7681;box-shadow:0 0 0 1px color-mix(in srgb,#6E7681 55%,transparent)}
+.wdot.paused{background:#f0883e}
+.wdot.error{background:var(--bad)}
+.wdot.off{background:transparent;color:var(--bad);border-radius:0}
+.wdot.off::after{content:"\2715"}            /* a red cross, not a circle */
+.wstate{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  margin-left:9px;padding:1px 7px;border-radius:4px}
+.wstate.running{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.wstate.idle{background:color-mix(in srgb,#6E7681 22%,transparent);color:#6E7681}
+.wstate.paused{background:color-mix(in srgb,#f0883e 20%,transparent);color:#f0883e}
+.wstate.error{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.wstate.off{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
+/* Running but with nothing in hand. Still green, because it is working as it
+   should be, just dimmer so a busy worker stands out from an idle one. */
+.wstate.running.waiting{background:color-mix(in srgb,var(--ok) 10%,transparent);
+  color:color-mix(in srgb,var(--ok) 72%,var(--muted))}
+.werr{margin-top:5px;font-size:12.5px;color:var(--bad);font-weight:700}
+/* A button press the session has not echoed back yet. */
+.wpending{margin-top:5px;font-size:12.5px;color:#f0883e;font-weight:700}
+.wbtns{display:flex;gap:6px;flex:none;flex-wrap:wrap}
+.wbtns button{height:28px;padding:0 11px;border-radius:7px;border:1.5px solid var(--line);
+  background:transparent;color:var(--ink);cursor:pointer;font:700 12px/1 inherit}
+.wbtns button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.wbtns button:disabled{opacity:.35;cursor:not-allowed}
+.wyield{margin-top:5px;font-size:12px;color:var(--warn);font-weight:700}
 .qanalab{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
   color:var(--accent);white-space:nowrap}
 .qdec{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:7px 0 0 24px;
@@ -213,6 +284,12 @@ fieldset{border:0;margin-bottom:18px}
 .qrow.writing{opacity:.45}
 /* Written rows stay in the list on purpose, so they can be run again. Marked,
    not faded: faded means busy, and these are ready to use. */
+/* Writing or written, and by whom. The "by" half is the point: it stops two
+   sessions writing the same post twice. */
+.qwrite{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  padding:1px 7px;border-radius:4px;margin-left:7px;white-space:nowrap}
+.qwrite.writing{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.qwrite.written{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
 .qrow.written{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
 .qrow.written .qtitle::after{content:"\2713";margin-left:7px;color:var(--ok);font-weight:800}
 .qrow.writing .qmeta{color:var(--accent)}
@@ -604,11 +681,21 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;paddi
 </section>
 
 <section class="page" id="page-profile">
-  <div class="soon">
-    <h2>Profile</h2>
-    <p>Nothing here yet. The obvious use is reading and editing the person profiles in
-      <code>profiles/</code> from the browser instead of the editor, since those are what every
-      proposal is written from. Say the word and I'll wire it.</p>
+  <div class="wrap" style="padding:18px 0 28px">
+    <section class="panel" style="margin-bottom:16px">
+      <h2>Status</h2>
+      <div class="sub">Where everything stands right now, in one look.</div>
+      <div id="stats" class="scards"></div>
+      <div class="hint" id="statsHint" style="margin-top:10px"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Workers</h2>
+      <div class="sub">The three roles, separated so they run at once without tripping over each
+        other. Each one starts, pauses, resumes and stops on its own.</div>
+      <div id="workers" class="wlist"></div>
+      <div class="hint" id="workersHint" style="margin-top:12px"></div>
+    </section>
   </div>
 </section>
 </div>
@@ -970,6 +1057,21 @@ $("go").addEventListener("click", async () => {
     $("go").disabled = false;
     return setStatus("<b>Failed:</b> " + err.message, "bad");
   }
+  // Check nobody else is on this post before creating a second job for it.
+  // Writing is blocked outright; already-written asks first, since rewriting
+  // is a reasonable thing to want and replacing a letter silently is not.
+  try {
+    const chk = await (await fetch("/api/queue/" + seq + "/writable")).json();
+    if (chk && chk.ok === false){
+      $("go").disabled = false;
+      return setStatus("<b>Not started:</b> " + chk.message
+        + " Wait for it to finish, or stop that worker on the Profile tab.", "warn");
+    }
+    if (chk && chk.confirm && !confirm(chk.message)){
+      $("go").disabled = false;
+      return setStatus("Left the existing proposal alone.", "");
+    }
+  } catch { /* the check is a courtesy; a server hiccup must not block a write */ }
   const {ok, data} = await post("/api/generate", payload(seq));
   if (!ok){
     setRunButtons(false);
@@ -2169,6 +2271,17 @@ function renderQueue(rows){
     // the two read together as the provenance of the row, where it came from
     // and what it turned out to be.
     if (marks) meta.append(marks);
+    // Writing or written, and by whom, so two sessions never write one post
+    // twice without somebody being able to see it.
+    if (r.write_state){
+      const w = document.createElement("span");
+      w.className = "qwrite " + r.write_state;
+      w.textContent = r.write_state + (r.write_by ? " by " + r.write_by : "");
+      w.title = r.write_state === "writing"
+        ? "A session holds this job right now. Starting another write would duplicate it."
+        : "A proposal exists for this job. Writing again replaces it.";
+      meta.append(w);
+    }
     meta.append(client);
     if (r.budget) bits.push(r.budget);
     if (r.published) bits.push(r.published);
@@ -2272,6 +2385,205 @@ $("queueClear").addEventListener("click", async () => {
   setStatus("Queue cleared, <b>" + data.removed + "</b> row"
             + (data.removed === 1 ? "" : "s") + " removed.", "ok");
 });
+
+/* ---------- Status cards, on the Profile tab ---------- */
+function scard(title, big, bigLabel, rows){
+  const c = document.createElement("div");
+  c.className = "scard";
+  const h = document.createElement("h3"); h.textContent = title;
+  const b = document.createElement("div"); b.className = "sbig";
+  b.textContent = String(big);
+  const sm = document.createElement("small"); sm.textContent = bigLabel;
+  b.append(sm);
+  const list = document.createElement("div"); list.className = "srows";
+  rows.forEach(([label, n, sep]) => {
+    const r = document.createElement("div");
+    // Zero rows are dimmed rather than hidden: a stable set of lines is easier
+    // to read at a glance than a list that changes shape every refresh.
+    r.className = "srow" + (n ? "" : " zero") + (sep ? " sep" : "");
+    const l = document.createElement("span"); l.textContent = label;
+    const v = document.createElement("span"); v.textContent = n;
+    r.append(l, v); list.append(r);
+  });
+  c.append(h, b, list);
+  return c;
+}
+
+function renderStats(d){
+  const host = $("stats");
+  host.innerHTML = "";
+  const q = d.queue || {}, a = d.analysed || {}, w = d.written || {};
+  host.append(scard("All jobs in the queue", q.total || 0, "rows", [
+    ["from search", q.search || 0],
+    ["from vollna", q.vollna || 0],
+    ["from upwork", q.upwork || 0],
+    ...(q.other ? [["other", q.other]] : []),
+  ]));
+  host.append(scard("Analyzed", a.total || 0, "analysed", [
+    ["decided bid", a.bid || 0],
+    ["decided manual check", a.manual_check || 0],
+    ["decided skip", a.skip || 0],
+    ["not yet analysed", a.pending || 0, true],
+  ]));
+  host.append(scard("Written", w.total || 0, "proposals", [
+    ["with a boost time", w.boosted || 0],
+    ["without a boost time", w.unboosted || 0],
+  ]));
+  // Dropped rows are deleted, so the analysed count is survivors only. Saying
+  // so stops the number reading as "all the analysis ever done".
+  $("statsHint").innerHTML = (a.pending
+      ? "<b>" + a.pending + "</b> row" + (a.pending === 1 ? "" : "s") + " waiting on the analyzer. "
+      : "Nothing waiting on the analyzer. ")
+    + "Analysed counts survivors only, since a dropped row is deleted rather than kept.";
+}
+
+async function loadStats(){
+  try {
+    const res = await fetch("/api/stats");
+    renderStats(await res.json());
+  } catch { /* server down; the status bar says so */ }
+}
+
+/* ---------- The three workers, on the Profile tab ---------- */
+const WORKER_STATE_HELP = {
+  off:     "No session is allocated. Nothing is behind this role.",
+  idle:    "Idle. A session is there but has not been started.",
+  running: "Working. The word beside the name says whether it has something in hand.",
+  paused:  "Started, then paused. It finishes nothing new and waits.",
+  error:   "Something unexpected. It stopped and a person has to look.",
+};
+const WORKER_BLURB = {
+  bringer:  "Brings jobs in. Holds a long poll on the relay and saves each arrival as a queue row. The only one that runs inside the server, so stopping it really does stop new jobs arriving.",
+  analyzer: "Analyses queue rows in order, on the fastest model. Marks the stack, picks the person from the marks, finds the client's name.",
+  writer:   "Writes proposals, on the strongest model. Stands down on its own when you press Write proposal, Submit and rewrite, or Answer screening, and picks up again when yours lands.",
+};
+
+function renderWorkers(rows){
+  const host = $("workers");
+  host.innerHTML = "";
+  rows.forEach(w => {
+    // `status` is the derived one: "off" whenever nothing is attached, which
+    // outranks whatever intent is stored. The stored state is only shown once
+    // something is actually behind the role.
+    const st = w.status || "off";
+    const row = document.createElement("div");
+    row.className = "wrow " + st;
+
+    const main = document.createElement("div");
+    main.className = "wmain";
+    const name = document.createElement("div");
+    name.className = "wname";
+    const dot = document.createElement("span");
+    dot.className = "wdot " + st;
+    dot.title = WORKER_STATE_HELP[st] || st;
+    name.append(dot, document.createTextNode(w.role));
+    const badge = document.createElement("span");
+    // The colour still tracks the five states; the word is the role's own verb,
+    // so "running" never has to stand for both working and idle.
+    const act = w.activity || st;
+    badge.className = "wstate " + st + (act === "waiting" ? " waiting" : "");
+    badge.textContent = act;
+    badge.title = WORKER_STATE_HELP[st] || st;
+    name.append(badge);
+    const kind = document.createElement("span");
+    kind.className = "wkind";
+    kind.textContent = w.kind === "thread" ? "in the server" : "claude session";
+    name.append(kind);
+    const what = document.createElement("div");
+    what.className = "wwhat";
+    what.textContent = WORKER_BLURB[w.role] || "";
+    const cur = document.createElement("div");
+    cur.className = "wcur";
+    // Status, in the order a person asks it: is it allowed to run, and what is
+    // it actually on right now.
+    const bits = [];
+    // Did the session hear the last button press? Outstanding until it echoes
+    // the command number back, so a Stop that never reached anything says so
+    // instead of looking like it worked.
+    if (w.command_pending && w.last_command){
+      const p = document.createElement("div");
+      p.className = "wpending";
+      p.textContent = "\u201c" + w.last_command + "\u201d not acknowledged yet"
+        + (w.kind === "session" ? " \u00b7 a session hears it on its next check-in"
+                               : "");
+      main.append(p);
+    }
+    if (st === "off") bits.push("no session allocated");
+    if (w.current) bits.push(w.current);
+    else if (w.note) bits.push(w.note);
+    if (w.last_seen) bits.push("last seen " + agoText(w.last_seen));
+    cur.textContent = bits.join(" \u00b7 ") || WORKER_STATE_HELP[st] || "";
+    main.append(name, what, cur);
+    if (st === "error" && w.error){
+      const e = document.createElement("div");
+      e.className = "werr";
+      e.textContent = "needs a person: " + w.error;
+      main.append(e);
+    }
+    if (w.yielded_to){
+      const y = document.createElement("div");
+      y.className = "wyield";
+      y.textContent = "stood down for your " + w.yielded_to;
+      main.append(y);
+    }
+
+    const btns = document.createElement("div");
+    btns.className = "wbtns";
+    [["start","Start"],["pause","Pause"],["resume","Resume"],["stop","Stop"]]
+      .forEach(([action,label]) => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        // Only the moves that mean something are live: you cannot pause a
+        // stopped worker or resume one that is already running.
+        // Off means nothing is there to command, so only Start is offered —
+        // it stores the intent, and the signal turns green when a session
+        // actually attaches.
+        b.disabled = (st === "off" && action !== "start")
+                  || (action === "start"  && st === "running")
+                  || (action === "pause"  && st !== "running")
+                  || (action === "resume" && st !== "paused" && st !== "error")
+                  || (action === "stop"   && st === "idle");
+        b.addEventListener("click", async () => {
+          b.disabled = true;
+          const {ok, data} = await post("/api/worker/" + w.role + "/" + action, {});
+          if (!ok) return setStatus("<b>Failed:</b> " + (data.error || "unknown"), "bad");
+          setStatus("<b>" + w.role + "</b> " + action + "ed.", "ok");
+          loadWorkers();
+        });
+        btns.append(b);
+      });
+
+    row.append(main, btns);
+    host.append(row);
+  });
+  const off = rows.filter(r => (r.status || "off") === "off").length;
+  const err = rows.filter(r => r.status === "error").length;
+  $("workersHint").innerHTML = err
+    ? "<b>" + err + "</b> in error. Night Fury has been told; look at the reason, then Resume."
+    : off
+      ? "<b>" + off + "</b> of " + rows.length + " have no session behind them. Start stores the "
+        + "intent, but the signal only turns green once a session attaches and checks in."
+      : "All attached. The writer yields to you automatically, so you never wait behind it.";
+}
+
+function agoText(ts){
+  const s = Math.max(0, Math.round(Date.now()/1000 - ts));
+  if (s < 60) return s + "s ago";
+  if (s < 3600) return Math.round(s/60) + "m ago";
+  return Math.round(s/3600) + "h ago";
+}
+
+async function loadWorkers(){
+  try {
+    const res = await fetch("/api/workers");
+    const d = await res.json();
+    renderWorkers(d.workers || []);
+  } catch { /* server down; the status bar already says so */ }
+}
+loadWorkers(); loadStats();
+setInterval(() => {
+  if ($("page-profile").classList.contains("on")){ loadWorkers(); loadStats(); }
+}, 4000);
 
 setInterval(() => loadQueue(true), 5000);
 

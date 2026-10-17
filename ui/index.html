@@ -163,6 +163,18 @@ fieldset{border:0;margin-bottom:18px}
 .qhist.on{border-color:var(--accent);color:var(--accent)}
 .qhist.none{opacity:.55;cursor:default}
 .qhist.none:hover{border-color:var(--line);color:var(--muted)}
+/* The client's screening questions, lifted out of the posting. Same shape as
+   the history button so the two read as a pair. */
+.qscr{flex:none;height:23px;padding:0 8px;border:1.5px solid var(--line);
+  border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;
+  font:600 11px/1 inherit;letter-spacing:.02em;white-space:nowrap}
+.qscr:hover{border-color:var(--accent);color:var(--accent)}
+.qscr.on{border-color:var(--accent);color:var(--accent)}
+.qscrpanel{margin:6px 0 0 24px;padding:9px 11px;border:1.5px solid var(--line);
+  border-radius:8px;background:color-mix(in srgb,var(--accent) 4%,transparent);
+  font-size:13px;line-height:1.5;white-space:pre-wrap;max-height:220px;overflow-y:auto}
+.qscrpanel ol{margin:0;padding-left:20px}
+.qscrpanel li{margin:3px 0}
 .qwh{margin:8px 0 0 24px;border-left:2px solid var(--line);padding:2px 0 2px 10px;
   max-height:340px;overflow-y:auto}
 .qwhsum{font-size:11px;color:var(--muted);margin:0 0 7px;line-height:1.5}
@@ -1955,6 +1967,7 @@ let queueRedrawPending = null;
    Keyed by seq, so a panel reopens in the same state after each redraw and the
    contracts are fetched once rather than on every poll. */
 let histOpen = new Set();
+let scrOpen = new Set();     // which screening panels the person has open
 let histData = {};
 let histScroll = {};      // how far down each open panel was read to
 
@@ -2141,17 +2154,55 @@ function renderQueue(rows){
     // means no section at all, which is a different thing from a client whose
     // section says zero: a new client is a fact worth seeing, not a blank.
     let hist = null, histPanel = null;
-    if (r.work_history !== null && r.work_history !== undefined){
+    let scr = null, scrPanel = null;
+
+    // The client's screening questions. The feed prints them inside the posting
+    // rather than sending a field, so the server lifts them out as a copy and
+    // serves them on the row. Nothing rendered them until now, so a job that
+    // asked three questions looked identical to one that asked none — and the
+    // client reads the answers before the cover letter, so they matter more.
+    if (String(r.screening || "").trim()){
+      const qs = String(r.screening).split("\n").map(x => x.trim()).filter(Boolean);
+      const sopen = scrOpen.has(r.seq);
+      scr = document.createElement("button");
+      scr.className = "qscr" + (sopen ? " on" : "");
+      scr.textContent = "screening " + qs.length;
+      scr.title = (sopen ? "Hide" : "Show") + " the " + qs.length
+        + " screening question" + (qs.length === 1 ? "" : "s") + " this client asked";
+      scrPanel = document.createElement("div");
+      scrPanel.className = "qscrpanel";
+      scrPanel.style.display = sopen ? "block" : "none";
+      const ol = document.createElement("ol");
+      qs.forEach(q => { const li = document.createElement("li"); li.textContent = q; ol.append(li); });
+      scrPanel.append(ol);
+      scr.addEventListener("click", () => {
+        if (scrOpen.has(r.seq)){
+          scrOpen.delete(r.seq); scrPanel.style.display = "none"; scr.classList.remove("on");
+        } else {
+          scrOpen.add(r.seq); scrPanel.style.display = "block"; scr.classList.add("on");
+        }
+      });
+    }
+    // null means the feed sent no work-history block at all, which is a
+    // different fact from "this client has no past contracts" and used to be
+    // invisible: the button was simply absent. vollna-scraper sends no history
+    // on any row, so every one of its cards looked like a card with nothing to
+    // show rather than a feed with something missing.
+    {
       const open = histOpen.has(r.seq);
+      const sent = r.work_history !== null && r.work_history !== undefined;
       hist = document.createElement("button");
-      hist.className = "qhist" + (r.work_history ? "" : " none") + (open ? " on" : "");
-      hist.textContent = r.work_history
-        ? "history " + r.work_history
-        : "no history";
-      hist.title = r.work_history
-        ? (open ? "Hide" : "Show") + " this client's " + r.work_history
-          + " past contract" + (r.work_history === 1 ? "" : "s")
-        : "This client has no past contracts on Upwork";
+      hist.className = "qhist" + (sent && r.work_history ? "" : " none") + (open ? " on" : "");
+      hist.textContent = !sent
+        ? "history not sent"
+        : (r.work_history ? "history " + r.work_history : "no history");
+      hist.title = !sent
+        ? "This feed did not include a work-history block, so the client's past "
+          + "contracts and their name could not be read"
+        : (r.work_history
+            ? (open ? "Hide" : "Show") + " this client's " + r.work_history
+              + " past contract" + (r.work_history === 1 ? "" : "s")
+            : "This client has no past contracts on Upwork");
       histPanel = document.createElement("div");
       histPanel.className = "qwh";
       histPanel.style.display = open ? "block" : "none";
@@ -2214,6 +2265,7 @@ function renderQueue(rows){
 
     top.append(tick, title, copy, del);
     if (hist) top.insertBefore(hist, copy);
+    if (scr) top.insertBefore(scr, copy);
 
     // What the analyzer decided this job is, per analyzer-rule.md. Dropped
     // rows keep their place deliberately: a wrong call should be visible and
@@ -2351,6 +2403,7 @@ function renderQueue(rows){
     row.append(top, meta);
     if (dec) row.append(dec);
     if (histPanel) row.append(histPanel);
+    if (scrPanel) row.append(scrPanel);
     if (ana) row.append(ana);
     host.append(row);
   });
@@ -2455,7 +2508,8 @@ const WORKER_STATE_HELP = {
 const WORKER_BLURB = {
   bringer:  "Brings jobs in. Holds a long poll on the relay and saves each arrival as a queue row. The only one that runs inside the server, so stopping it really does stop new jobs arriving.",
   analyzer: "Analyses queue rows in order, on the fastest model. Marks the stack, picks the person from the marks, finds the client's name.",
-  writer:   "Writes proposals, on the strongest model. Stands down on its own when you press Write proposal, Submit and rewrite, or Answer screening, and picks up again when yours lands.",
+  writer:   "Writes proposals for the queue, on the strongest model. Takes only the jobs it created itself from a bid decision, never one you clicked.",
+  "manual-writer": "Writes the proposal when you press Write proposal with a job ticked in the queue. Same rules as the queue writer, same guides, same profiles \u2014 it reads them from the project, so updating a rule updates this too.",
 };
 
 function renderWorkers(rows){
@@ -2487,7 +2541,18 @@ function renderWorkers(rows){
     name.append(badge);
     const kind = document.createElement("span");
     kind.className = "wkind";
-    kind.textContent = w.kind === "thread" ? "in the server" : "claude session";
+    // Name the session actually behind the role, so "who is doing this" is a
+    // fact the panel knows rather than something inferred from the role name.
+    kind.textContent = w.kind === "thread"
+      ? "in the server"
+      : (w.session || "waiting for a session");
+    if (!w.session_ok){
+      kind.textContent = w.session + " \u2260 " + w.expected_session;
+      kind.style.color = "var(--bad)";
+      kind.title = "A different session than expected is holding this role.";
+    } else if (w.session){
+      kind.title = "Session " + w.session + " is holding this role.";
+    }
     name.append(kind);
     const what = document.createElement("div");
     what.className = "wwhat";

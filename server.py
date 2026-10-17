@@ -64,7 +64,7 @@ WORKERS_FILE = STATE_DIR / "workers.json"
 # cannot start them. What it holds is the *intent*: a session reads its own
 # state before each step and obeys it. "running" means carry on, "paused" means
 # finish nothing new and wait, "stopped" means do not pick anything up.
-WORKER_ROLES = ("bringer", "analyzer", "writer")
+WORKER_ROLES = ("bringer", "analyzer", "writer", "manual-writer")
 WORKERS = {}
 WORKERS_LOCK = threading.Lock()
 
@@ -313,6 +313,11 @@ def _worker_blank(role):
             # and the panel can say whether it was heard.
             "command_seq": 0, "last_command": "", "command_at": None,
             "acked_seq": 0, "acked_at": None,
+            # Which session is actually holding this role, as reported by its
+            # own heartbeat. Before this the panel knew four roles were being
+            # heartbeated and could not say by whom, so the mapping was my
+            # guess from the session names rather than a fact.
+            "session": "",
             # Set when a person presses Write proposal, Submit and rewrite, or
             # Answer screening while the writer is mid-draft. The writer yields,
             # the person's job goes first, and this clears when it lands.
@@ -348,6 +353,9 @@ def load_workers():
             WORKERS[role]["command_seq"] = 0
             WORKERS[role]["acked_seq"] = 0
             WORKERS[role]["acked_at"] = None
+            # Nothing is attached across a restart, so no role comes back
+            # claiming a session that has not checked in yet.
+            WORKERS[role]["session"] = ""
     save_workers()
 
 
@@ -375,6 +383,38 @@ def worker_get(role):
         return dict(WORKERS.get(role) or _worker_blank(role))
 
 
+# Which session is supposed to be behind each role. The bringer has none: it is
+# a thread in this process. Declared by the user on 2026-10-15, after the panel
+# could show four roles heartbeating without being able to say who by.
+WORKER_SESSION = {
+    "analyzer": "analyzer-session",
+    "writer": "auto-writer-session",
+    "manual-writer": "manual-writer-session",
+}
+
+
+def role_from_session_name(name):
+    """The role a session's name declares it is filling.
+
+    Derived rather than matched against a fixed string, so renaming a session
+    from `writer-session` to `auto-writer-session` does not break the link.
+    Manual is tested before writer because "manual-writer-session" contains
+    both words.
+    """
+    v = str(name or "").strip().lower()
+    if not v:
+        return ""
+    if "manual" in v:
+        return "manual-writer"
+    if "analy" in v:
+        return "analyzer"
+    if "writer" in v or "worker" in v:
+        return "writer"
+    if "bring" in v or "relay" in v:
+        return "bringer"
+    return ""
+
+
 def worker_attached(role, w=None):
     """Is there actually something behind this role right now?
 
@@ -394,7 +434,8 @@ def worker_attached(role, w=None):
 # What "running" is called, per role. A person reading the panel wants the verb
 # for the job, not the state of the process: a writer that is running is either
 # writing or waiting for something to write, and those are different facts.
-WORKER_VERBS = {"bringer": "bringing", "analyzer": "analyzing", "writer": "writing"}
+WORKER_VERBS = {"bringer": "bringing", "analyzer": "analyzing",
+                "writer": "writing", "manual-writer": "writing"}
 
 
 def worker_activity(role, w=None):
@@ -425,17 +466,15 @@ def worker_activity(role, w=None):
         return "bringing" if cur.startswith("bringing") else "waiting"
     if role == "analyzer":
         return "analyzing" if work_in_flight("analysis") else "waiting"
-    # The writer is writing only when the job in flight is *its* job. A
-    # proposal the person is writing in their own session is not this role's
-    # work, and must not light this row up.
-    # Every job in flight, not just the first one found. Two can be written at
-    # once — the person's in their session and the queue's in the writer's — so
+    # Each writer lights up only for the jobs it owns, so the queue writer and
+    # the manual writer never show each other's work. Every job in flight is
+    # checked, not just the first found: two are written at once by design, and
     # asking only about the first made this row depend on dict order.
     with JOBS_LOCK:
         for job in JOBS.values():
             if job.get("status") not in ("working", "revising"):
                 continue
-            if (job.get("writing_by") or job.get("initiator")) == "writer":
+            if job_owner(job) == role:
                 return "writing"
     return "waiting"
 
@@ -586,18 +625,37 @@ def approve_registration(thread, assigned_id, note=""):
 
 
 def who_wrote(label):
-    """Normalise any "by" label to the only two answers that matter.
+    """Normalise any "by" label to the role that owns the work.
 
-    The claim takes a free-text session name and /api/generate takes an
-    `initiator`, but a person reading the queue card wants one of two words:
-    was this the **writer** working the queue, or the **user** pressing a
-    button. Anything that is not plainly the worker reads as the user, because
-    the UI sends nothing and a person is the default actor.
+    Two writers, and the difference is what started the job: the **writer**
+    works the queue on its own, the **manual-writer** writes what a person
+    clicked in the UI. The claim takes a free-text session name and
+    /api/generate takes an `initiator`, and both land here.
+
+    Order matters: "manual-writer" contains "writer", so manual is tested
+    first. Anything unrecognised reads as the manual writer, because the UI
+    sends nothing at all and a person's click is the default actor. The older
+    label "user" means the same thing and still maps here.
     """
     v = str(label or "").strip().lower()
     if not v:
         return ""
-    return "writer" if ("worker" in v or "writer" in v) else "user"
+    if "manual" in v:
+        return "manual-writer"
+    if "worker" in v or "writer" in v:
+        return "writer"
+    return "manual-writer"
+
+
+def job_owner(job):
+    """Whose job this is: the role that asked for it.
+
+    A job created from the UI belongs to the person's own session; one the
+    writer created for itself belongs to the writer. Recorded at creation as
+    `initiator` and never changed afterwards, because ownership is a fact about
+    who asked, not about who happens to poll first.
+    """
+    return who_wrote((job or {}).get("initiator")) or "manual-writer"
 
 
 def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
@@ -612,7 +670,7 @@ def new_job(guide_id, person_id, jd, client="", screening="", url="", title="",
         "person": person_id,
         # Who asked for this job, and who is writing or wrote it. The card in
         # the queue reads these back as "writing by writer" / "written by user".
-        "initiator": who_wrote(initiator) or "user",
+        "initiator": who_wrote(initiator) or "manual-writer",
         "writing_by": "",
         "written_by": "",
         # The same two readings for the person, and the same enforcement. What
@@ -815,11 +873,32 @@ def work_in_flight(kind=None):
     return None
 
 
-def _without_work_history(text):
-    """The posting, with the client's past contracts cut off the end."""
+# Everything the feed appends after the posting itself. The Hungry message
+# carries the job, not the apparatus around it: the work history, the project
+# info block, the client block and the screening questions all have their own
+# home — the queue card, its buttons, and the screening panel — and in the
+# phone message they only bury the posting. User instruction, 2026-10-15.
+POSTING_END = re.compile(
+    r"^[ \t]*(?:work\s+history\s*\(|project\s+info\s*:|client\s*:"
+    r"|screening\s+questions?\s*:|terms\s+of\s+service)",
+    re.I | re.M)
+
+
+def _posting_only(text):
+    """The posting, with every appended section cut off the end.
+
+    Cuts at the **earliest** boundary, not the first one looked for: these
+    sections arrive in no fixed order, and stopping at `Work history (` alone
+    left the project info and the screening questions in whenever they came
+    first.
+    """
     text = str(text or "")
-    m = WH_HEADER.search(text)
+    m = POSTING_END.search(text)
     return (text[:m.start()] if m else text).strip()
+
+
+# Kept under its old name for anything still calling it.
+_without_work_history = _posting_only
 
 
 def telegram_job_analysed(item):
@@ -859,8 +938,21 @@ def telegram_job_analysed(item):
         verdict.append("Stack: " + ", ".join(stack))
     if person:
         verdict.append("Person: " + person)
+    # The producer's own call, which is the most actionable fact in the message:
+    # `bid` means the auto writer will write this one without being asked,
+    # `manual check` and `skip` mean it waits for a person. analyzer-rule.md
+    # step 4 has always asked for it; the code was not sending it until
+    # 2026-10-14.
+    decision = str(b.get("decision") or b.get("aiQualification") or "").strip()
+    if decision:
+        verdict.append("Decision: " + decision)
     if verdict:
         head.append(html.escape(" \u00b7 ".join(verdict)))
+    # The producer's reason is deliberately NOT sent. It was added beside the
+    # decision on 2026-10-14 and removed the same day on the user's
+    # instruction: the message is for judging a job at a glance, and the
+    # reasoning behind the verdict is already on the queue card and in the
+    # stored analysis for anybody who wants it.
     head.append("Budget: " + html.escape(str(b.get("budget") or "not specified")))
     bits = []
     for label, key in (("Rank", "rank"), ("Location", "location")):
@@ -888,7 +980,7 @@ def telegram_job_analysed(item):
     # already on the queue card and the detail sits behind its button there,
     # which is where it can be read deliberately. analyzer-rule.md step 4 asked
     # for this; the code was still sending the lot until 2026-10-14.
-    desc = _without_work_history(b.get("description") or "")
+    desc = _posting_only(b.get("description") or "")
     if desc:
         # Telegram caps a message at 4096 characters and HTML-escaping only ever
         # makes text longer, so the budget is measured on the escaped result
@@ -1082,9 +1174,25 @@ def _write_check_once():
 
 
 def telegram_proposal_done(job):
-    """One short message when a proposal is finished and ready to copy."""
+    """One short message when a proposal is finished and ready to copy.
+
+    **Says who the proposal is for.** Two people share this queue and their
+    pools must never be mixed, so the person is the first thing worth knowing
+    about a finished letter: it is what decides whether the message is about
+    work you were expecting. Added on the user's instruction, 2026-10-14.
+    """
     label = "Proposal rewritten" if job.get("status_was_revising") else "Proposal done"
     lines = [f"<b>{label}</b>", html.escape(job.get("title") or job["id"])]
+    who = str(job.get("person") or "").strip()
+    if who:
+        line = "For: " + html.escape(who)
+        # Whose hand it came from, where that is known. Useful beside the
+        # person: "for Zachary, by the writer" is a different event from
+        # "for Zachary, by you".
+        by = str(job.get("written_by") or "").strip()
+        if by:
+            line += " \u00b7 written by the " + html.escape(by)
+        lines.append(line)
     if job.get("url"):
         lines.append(html.escape(job["url"]))
     return telegram_send("\n".join(lines), f"job {job['id']} done")
@@ -1227,7 +1335,76 @@ def _client_name(v):
 
 # The saved Vollna search that produces these calls itself
 # "general-vollna-search". In the queue it is just "search".
-SEARCH_SOURCES = {"job-decision", "general-vollna-search", "vollna-search"}
+# Every source value that means "the general vollna search". **"search" is in
+# here deliberately**: it is what _normalise_job_body writes, and leaving it out
+# meant a body that already said `source: search` skipped normalisation
+# entirely. That is what happened to seq 861 on 2026-10-15 — a job from
+# vollna-scraper with the capitalised `Job title` / `Job link` keys was never
+# mapped, failed _looks_like_a_job, and was filed as an instruction thread
+# instead of reaching the queue.
+SEARCH_SOURCES = {"job-decision", "general-vollna-search", "vollna-search", "search"}
+
+# Producers that play the general-vollna-search role, by relay worker id or by
+# name. A row from any of them is a search row and gets the full automatic
+# treatment: analysed on arrival, Hungry told once a verdict exists, and a
+# `bid` written without being asked.
+#
+# **Identified by sender, not only by what the body claims.** Until 2026-10-15
+# a row qualified purely on its own `source` field, so a second scraper
+# depended on labelling itself correctly to be treated correctly — and nothing
+# recorded that it was a known producer at all. `vollna-scraper` arrived on
+# 2026-10-14 as an unrecognised worker id, sent one job, and was analysed only
+# because its body happened to say the right thing.
+SEARCH_SENDERS = {
+    # the original general vollna search
+    "w-56bd725cbcd05de7243460abbd797240",
+    "general-vollna-search",
+    # vollna-scraper: same role, confirmed by the user on 2026-10-15
+    "w-f55a0da9e1d62940e731f688cd727774",
+    "vollna-scraper",
+}
+
+
+def source_for_sender(sender, claimed=""):
+    """Which feed a message came from, decided by who sent it.
+
+    Three feeds, and the mark decides what happens to the row:
+
+      * **search** — the general vollna search producers. Analysed on arrival,
+        announced to Hungry, and written unasked on a `bid`.
+      * **vollna** — a Vollna *alert* bot, which watches a saved search and
+        forwards matches with no verdict attached. Never analysed.
+      * **upwork** — Upwork's own notification and invitation feeds. Never
+        analysed.
+
+    Order matters. `zachary-upwork-vollna-alert` contains both words and is a
+    Vollna alert, so vollna is tested first — on the user's instruction of
+    2026-10-15, correcting rows that had been marked `upwork`.
+
+    **The fallback is "", not "search".** Defaulting an unknown sender to the
+    search feed is how seq 930 — a Vollna alert — came to be marked `search`
+    on 2026-10-15: the `fields` reader I added defaulted the source rather
+    than deriving it, and a search mark is what puts a row into the automatic
+    analyse-and-write path.
+    """
+    v = str(sender or "").strip().lower()
+    if is_search_sender(v):
+        return "search"
+    if "vollna" in v:
+        return "vollna"
+    if "upwork" in v:
+        return "upwork"
+    # Nothing in the sender says which feed, so keep what the body claimed
+    # rather than inventing a feed for it.
+    return str(claimed or "")
+
+
+def is_search_sender(sender):
+    """True when this producer plays the general-vollna-search role."""
+    v = str(sender or "").strip().lower()
+    return bool(v) and (v in {x.lower() for x in SEARCH_SENDERS}
+                        or "vollna-scraper" in v
+                        or "general-vollna-search" in v)
 
 
 # The client's own screening questions, which the general vollna search sends
@@ -1286,13 +1463,99 @@ def screening_text(value):
     return "\n".join(out)
 
 
+# The header the feed prints above the questions, and the section headers that
+# end them. The questions sit between the two, inside the description.
+SCREENING_HEADER = re.compile(r"^\s*screening\s+questions?\s*:?\s*(.*)$", re.I)
+SCREENING_END = re.compile(
+    r"^\s*(?:project\s+info\s*:|work\s+history\s*\(|client\s*:|terms\s+of\s+service)",
+    re.I)
+# What the feed prints when the post asked nothing. A question that is only
+# this is not a question.
+SCREENING_NONE = {"(none)", "none", "n/a", "na", "-", "(n/a)"}
+
+
+def _screening_drop_none(text):
+    """Drop the placeholders the feed prints when the post asked nothing."""
+    return "\n".join(q for q in str(text or "").splitlines()
+                     if q.strip() and q.strip().lower() not in SCREENING_NONE)
+
+
+def _screening_cut(value):
+    """Stop a screening field at the point it stopped being questions.
+
+    A field is trusted ahead of the description, so it has to be defended: if
+    whatever produced it folded the rest of the posting in — the project info,
+    the work history, the client's reviews — those lines are not questions and
+    must not become answerable items. Proved necessary on 2026-10-14 by queue
+    row 783, whose screening field held 2851 characters of work history.
+
+    Questions themselves are kept whole; only the tail from the first section
+    header onwards is cut.
+    """
+    if isinstance(value, (list, tuple, dict)) or value is None:
+        return value              # a structured field was never folded
+    kept = []
+    for raw in _as_text(value).splitlines():
+        if SCREENING_END.match(raw):
+            break
+        kept.append(raw)
+    return "\n".join(kept)
+
+
+def screening_from_description(description):
+    """The questions the feed prints inside the posting, lifted out as a copy.
+
+    The producer does not send these as a field: it prints a `Screening
+    Questions:` header in the body, the questions under it, and then carries on
+    with `Project info:` and the work history. Seen on 2026-10-14 in queue rows
+    780, 781 and 782 — and 782 shows the header is printed even when the post
+    asked nothing, with `(none)` under it, so the header's presence proves
+    nothing by itself.
+
+    **A copy, never a move.** The posting is handed to the writer as the client
+    wrote it, planted instructions and all, so nothing is cut out of it here.
+    The questions simply also appear in their own field, which is what gives
+    each one its own answer box and copy button in the UI.
+    """
+    text = _as_text(description)
+    if not text:
+        return ""
+    taking, found = False, []
+    for raw in text.splitlines():
+        if not taking:
+            hit = SCREENING_HEADER.match(raw)
+            if hit:
+                taking = True
+                # "Screening questions: do you know X?" — all on one line.
+                if hit.group(1).strip():
+                    found.append(hit.group(1))
+            continue
+        if SCREENING_END.match(raw):
+            break
+        if raw.strip():
+            found.append(raw)
+    return _screening_drop_none(screening_text(found))
+
+
 def body_screening(body):
-    """The screening questions on a job body, or "" when the post asked none."""
+    """The screening questions on a job body, or "" when the post asked none.
+
+    A field wins, because a producer that sends one has done the parsing for
+    us. The description is the fallback, since that is where the feed prints
+    them today.
+    """
     if not isinstance(body, dict):
         return ""
     for key in SCREENING_KEYS:
         if body.get(key):
-            text = screening_text(body[key])
+            # The feed prints its header even when the post asked nothing, so
+            # "(none)" reaches the field as readily as it reaches the body.
+            text = _screening_drop_none(screening_text(_screening_cut(body[key])))
+            if text:
+                return text
+    for key in ("description", "Job description", "jobDescription"):
+        if body.get(key):
+            text = screening_from_description(body[key])
             if text:
                 return text
     return ""
@@ -1420,10 +1683,42 @@ def parse_work_history(description):
     text = _as_text(description)
     m = WH_HEADER.search(text)
     if not m:
-        return None
+        # No header. Either there is no history, or this row came in the newer
+        # payload shape, where the producer sends the contracts as their own
+        # field instead of appending them to the posting. Seen from
+        # 2026-10-15, queue row 926: `workHistory` beside `clientInfo`, with
+        # the description carrying only the job. The entries are formatted
+        # exactly as before, just without the header line, so the parser below
+        # reads them unchanged once the count is taken from the entries.
+        entries = _parse_wh_entries(text)
+        return {"count": len(entries), "entries": entries} if entries else None
+    entries = _parse_wh_entries(text[m.end():])
+    return {"count": int(m.group(1)), "entries": entries}
+
+
+def work_history_of(item):
+    """The client's past contracts for a queue row, wherever they arrived.
+
+    Three places, newest first: the row's own `work_history_data`, the body's
+    `workHistory` field, and the end of the posting, which is where the feed
+    used to append them. One reader so the card, the history endpoint and the
+    analyzer cannot disagree about whether a client has a history.
+    """
+    item = item or {}
+    body = item.get("body") if isinstance(item.get("body"), dict) else {}
+    for candidate in (item.get("work_history_data"), body.get("workHistory"),
+                      body.get("description")):
+        wh = parse_work_history(candidate)
+        if wh:
+            return wh
+    return None
+
+
+def _parse_wh_entries(text):
+    """The contract entries themselves, with or without a header above them."""
     entries, cur = [], None
 
-    for raw in text[m.end():].splitlines():
+    for raw in text.splitlines():
         line = raw.strip()
         if not line:
             continue
@@ -1456,7 +1751,7 @@ def parse_work_history(description):
         cur["name"] = f"{cur['name']} {line}".strip()   # a name that wrapped
     if cur:
         entries.append(cur)
-    return {"count": int(m.group(1)), "entries": entries}
+    return entries
 
 
 def parse_labelled_body(text):
@@ -1483,13 +1778,14 @@ def parse_labelled_body(text):
         "rating": "clientRating", "reviews": "clientReviews",
         "payment verified": "clientPaymentVerified", "spent": "clientSpent",
         "registered": "clientRegistered",
-        # Optional, and the labelled shape is where the continuation rule earns
-        # its keep: the questions arrive as the lines under the label, one per
-        # line, and land in this one field for screening_text to split.
-        "screening questions": "screeningQuestions",
-        "screening question": "screeningQuestions",
-        "screening": "screeningQuestions",
-        "questions": "screeningQuestions",
+        # Deliberately NOT "screening questions". The feed prints that header
+        # inside the posting, ahead of "Project info:" and the work history,
+        # and neither of those is a label — so making it one would hand the
+        # questions *and everything after them* to that field, taking the work
+        # history out of the description, which is where parse_work_history and
+        # the client's name are read from. The questions are lifted out of the
+        # description instead, by screening_from_description(), which copies
+        # rather than moves and so cannot break the posting.
     }
     out, current = {}, None
     for raw in text.splitlines():
@@ -1512,7 +1808,7 @@ def parse_labelled_body(text):
             if line:
                 out["Job title"] = line
                 break
-    out = _unswallow_title(out)
+    out = _unswallow_facts(_unswallow_title(out))
     if out:
         out.setdefault("source", "general-vollna-search")
     return out
@@ -1559,15 +1855,132 @@ def _unswallow_title(out):
     return out
 
 
+# Every one of these is a single fact — a city, a rank, a rate, a date. None of
+# them can legitimately run to paragraphs, so a long multi-line value means the
+# continuation rule kept going past the end of the fact and swallowed the post.
+ONE_LINE_LABELS = ("clientLocation", "clientRank", "clientRating", "clientReviews",
+                   "clientPaymentVerified", "clientSpent", "clientRegistered",
+                   "budget", "published", "posted", "decision", "reason", "projectId")
+FACT_SANE_CHARS = 200
+
+
+def _unswallow_facts(out):
+    """The same repair as `_unswallow_title`, for the one-line facts.
+
+    `_unswallow_title` only ever rescued the title, because that was the field
+    seen holding a whole posting. The trap is not specific to the title: *any*
+    label can swallow the body, since the continuation rule extends whichever
+    field came last. Whichever label the producer happens to print immediately
+    before the posting is the one that eats it.
+
+    Seen on 2026-10-14, queue row 776: `Location: U.S. only` was the last label
+    before the body, so clientLocation held 14865 characters — the terms, the
+    whole job post, the project info and the work history — beside a 7-character
+    description reading "Summary". The title was fine, so the title repair never
+    looked at it, and the row reached the analyzer with no job description.
+
+    The first line is the fact and stays; everything after it is the posting and
+    goes to the description, the stub kept in front of it because it is the
+    opening of the text that was cut off. Only one field can win: once the
+    description has been rebuilt the rest are merely trimmed back to their first
+    line, so two swallowed facts cannot interleave two copies of the body.
+    """
+    for key in ONE_LINE_LABELS:
+        value = str(out.get(key) or "")
+        if "\n" not in value:
+            continue
+        first, _, rest = value.partition("\n")
+        rest = rest.strip()
+        if len(rest) <= FACT_SANE_CHARS:
+            # A short tail is the fact itself wrapped over two lines, not a
+            # swallowed posting. Collapse it rather than moving it anywhere:
+            # a reason that wraps is still one reason.
+            out[key] = " ".join(value.split())[:FACT_SANE_CHARS]
+            continue
+        out[key] = first.strip()[:FACT_SANE_CHARS]
+        stub = str(out.get("Job description") or "").strip()
+        if len(stub) > FACT_SANE_CHARS:
+            # There is already a real description, so this was never the body.
+            print(f"  malformed row: {key} held {len(value)} chars, "
+                  f"trimmed to its first line", flush=True)
+            continue
+        out["Job description"] = f"{stub}\n{rest}" if stub and stub not in rest else rest
+        print(f"  malformed row repaired: {key} held {len(value)} chars, "
+              f"moved {len(rest)} of them into the description", flush=True)
+    return out
+
+
+# Both shapes a producer may send: the lowercase keys, and the capitalised,
+# spaced keys that DECISION_KEYS maps. The test accepts either, so a body that
+# has not been normalised yet is still recognised as a job.
+JOB_SHAPE_KEYS = ("title", "url", "upworkUrl", "description", "jobDescription",
+                  "Job title", "Job link", "Job description")
+
+
+# The message's own structured half. The relay sends each job twice over: the
+# `body` string is the posting byte for byte, and `fields` is the same job
+# already parsed — title, url, description, clientInfo, workHistory, clientName
+# and screeningQuestions as data.
+#
+# **Nothing read `fields` until 2026-10-15.** Everything was reverse-engineered
+# out of the prose instead: the labelled-text parser, the capitalised-key
+# mapping, the swallowed-title and swallowed-fact repairs, the work-history
+# scrape, the client-name read from review lines, the screening lift. All of it
+# was reconstructing data that arrived structured in the same message.
+FIELD_MAP = {
+    "title": "title",
+    "url": "upworkUrl",
+    "jobId": "jobId",
+    "decision": "decision",
+    "reason": "reason",
+    "projectId": "projectId",
+    "description": "description",
+    "clientInfo": "clientInfo",
+    "workHistory": "workHistory",
+    "clientName": "clientName",
+    "screeningQuestions": "screeningQuestions",
+}
+
+
+def body_from_fields(fields, msg=None):
+    """Build the job body from the message's `fields`, in preference to prose.
+
+    Keeps the aliases the rest of the server already reads, so nothing
+    downstream has to know where the data came from. The posting stays
+    available verbatim: `fields.description` is the client's text, and the
+    message's `body` string carries the producer's own headers in front of it,
+    which must never reach a proposal as the client's words.
+    """
+    out = {}
+    for src, dst in FIELD_MAP.items():
+        v = fields.get(src)
+        if v not in (None, "", [], {}):
+            out[dst] = v
+    # Aliases the existing code paths expect.
+    if out.get("decision"):
+        out.setdefault("aiQualification", out["decision"])
+    if out.get("reason"):
+        out.setdefault("aiReason", out["reason"])
+    if out.get("projectId"):
+        out.setdefault("vollnaProjectId", out["projectId"])
+    out.setdefault("type", "job")
+    out["source"] = source_for_sender((msg or {}).get("sender"), out.get("source"))
+    return out
+
+
 def _looks_like_a_job(body):
+    """Is there a job in here, in either shape a producer uses?
+
+    It used to check the lowercase keys only, which is fine *after*
+    normalisation and wrong before it. A capitalised body that skipped
+    normalisation therefore looked like a non-job and was filed as an
+    instruction thread — silently, because that path logs and moves on.
+    """
     if not isinstance(body, dict):
         return False
     if str(body.get("type", "")).lower() in NOISE_TYPES:
         return False
-    return bool(
-        body.get("title") or body.get("url") or body.get("upworkUrl")
-        or body.get("description") or body.get("jobDescription")
-    )
+    return any(body.get(k) for k in JOB_SHAPE_KEYS)
 
 
 # What the relay says this project is, re-learned on every poll. Deliberately
@@ -1725,13 +2138,34 @@ def relay_pull(wait=0.0):
     relay_take_notices(payload)
     kept = []
     for msg in payload.get("messages", []):
+        # The message's own shape, logged once per arrival so a producer
+        # changing what it sends is visible rather than silently
+        # reverse-engineered out of prose.
+        print(f"  seq {msg['seq']} message keys: {sorted(msg)}", flush=True)
+
+        # **`fields` wins when it is there.** It is the same job already parsed,
+        # so reading it skips every guess the prose paths have to make.
+        fields = msg.get("fields")
         raw_body = msg.get("body")
-        if isinstance(raw_body, dict):
+        if isinstance(fields, dict) and fields:
+            body = body_from_fields(fields, msg)
+            print(f"  seq {msg['seq']} read from `fields`: {sorted(fields)}", flush=True)
+        elif isinstance(raw_body, dict):
             body = raw_body
         elif isinstance(raw_body, str) and raw_body.strip():
             body = parse_labelled_body(raw_body)      # labelled text, not fields
         else:
             body = {}
+
+        # A known search producer's row is a search row, so stamp it before
+        # normalising rather than hoping the body labelled itself. Without this
+        # a scraper that forgot the field would be filed as an unanalysed alert.
+        if isinstance(body, dict):
+            mark = source_for_sender(msg.get("sender"), body.get("source"))
+            if mark:
+                body["source"] = mark
+                if mark == "search":
+                    body.setdefault("type", "job")
         body = _normalise_job_body(body)
         if msg.get("channel") == "github":
             # Replies land here from whichever worker answers the search.
@@ -1746,6 +2180,13 @@ def relay_pull(wait=0.0):
                 item = {"seq": msg["seq"], "channel": msg["channel"],
                         "sender": msg.get("sender", ""), "ts": msg.get("ts", time.time()),
                         "body": body,
+                        # Straight off `fields` when the message had them, so
+                        # the card and the analysis get the client's standing
+                        # and past contracts as data rather than as scraped
+                        # prose. The prose paths still fill these when a
+                        # producer sends no fields.
+                        "client_info": body.get("clientInfo") or {},
+                        "work_history_data": body.get("workHistory") or [],
                         "client_name": _client_name(body.get("clientName")),
                         # The client's screening questions, when the feed sent
                         # them. Kept on the row as well as in the body so the
@@ -1755,7 +2196,8 @@ def relay_pull(wait=0.0):
                         "used": False,
                         # The analyzer fires on arrival for the search feed only,
                         # per analyzer-rule.md. Other alerts are not analysed.
-                        "analysis_wanted": body.get("source") == "search",
+                        "analysis_wanted": (body.get("source") == "search"
+                                            or is_search_sender(msg.get("sender"))),
                         "analysis": ""}
                 queue_save(item)
                 kept.append(item)
@@ -1763,6 +2205,24 @@ def relay_pull(wait=0.0):
                 print(f"  relay job seq {msg['seq']} arrived from {msg.get('sender','?')}: "
                       f"type={body.get('type','?')} title={title[:46]!r}", flush=True)
         else:
+            # A known search producer sending something that does not look like
+            # a job is a bug, not a conversation. It used to be filed quietly as
+            # an instruction and nothing said so: seq 861 on 2026-10-15 was a
+            # real job from vollna-scraper that sat on the Report page for hours
+            # because its keys were the capitalised shape and normalisation had
+            # been skipped. Say it loudly now, and keep the thread so the body
+            # is recoverable either way.
+            if is_search_sender(msg.get("sender")):
+                print(f"  WARNING: seq {msg['seq']} came from the search producer "
+                      f"{msg.get('sender')} but does not look like a job — keys "
+                      f"{sorted(body)[:8]}. Filed as a thread; it may be a job the "
+                      f"shape test does not recognise.", flush=True)
+                telegram_send(
+                    "<b>Unrecognised job from the search feed</b>\n"
+                    + html.escape(f"seq {msg['seq']} from {msg.get('sender','?')}")
+                    + "\nFiled on the Report page instead of the queue. "
+                      "The body is kept, so it can be recovered.",
+                    f"seq {msg['seq']} unrecognised")
             # Not a job, not a github reply: the server is talking to us rather
             # than sending work. That is what the Report page is for, so keep
             # it as a thread instead of dropping it on the floor.
@@ -1844,7 +2304,7 @@ def queue_items():
             "screening": item.get("screening") or body_screening(b),
             # Just the count, so the row stays small. The entries themselves are
             # fetched per item when the button is pressed.
-            "work_history": (parse_work_history(b.get("description")) or {}).get("count"),
+            "work_history": (work_history_of(item) or {}).get("count"),
             "stack": item.get("stack") or [],
             "dropped": bool(item.get("dropped")),
             "client_name": _client_name(item.get("client_name")) or _client_name(client.get("name")),
@@ -2370,6 +2830,13 @@ class Handler(BaseHTTPRequestHandler):
                 # what answers "did it hear me?" without guessing.
                 w["command_pending"] = bool(
                     int(w.get("command_seq") or 0) > int(w.get("acked_seq") or 0))
+                # Who is behind this role, what was expected, and whether they
+                # agree. The bringer expects nobody: it is a thread here.
+                w["expected_session"] = WORKER_SESSION.get(role, "")
+                got = w.get("session") or ""
+                w["session_ok"] = (role == "bringer" or not got
+                                   or not w["expected_session"]
+                                   or got == w["expected_session"])
                 w["kind"] = "thread" if role == "bringer" else "session"
                 rows.append(w)
             return self._send(200, {"workers": rows})
@@ -2422,10 +2889,10 @@ class Handler(BaseHTTPRequestHandler):
             if not f.is_file():
                 return self._send(404, {"error": "no such queue row"})
             try:
-                body = json.loads(f.read_text(encoding="utf-8")).get("body") or {}
+                row = json.loads(f.read_text(encoding="utf-8")) or {}
             except (OSError, ValueError) as exc:
                 return self._send(500, {"error": f"could not read row: {exc}"})
-            wh = parse_work_history(body.get("description"))
+            wh = work_history_of(row)
             if wh is None:
                 return self._send(200, {"seq": seq, "count": None, "entries": [],
                                         "note": "this job carries no work-history section"})
@@ -2517,18 +2984,32 @@ class Handler(BaseHTTPRequestHandler):
                 ids = [j["id"] for j in JOBS.values()
                        if j.get("translate_wanted") and not j.get("translation")]
             return self._send(200, {"ids": ids})
-        if path == "/api/jobs/queued":
+        if path.startswith("/api/jobs/queued"):
+            # `?for=writer` lists only the jobs that role owns, so a worker
+            # polling for work never even sees a job the person asked for.
+            want = ""
+            if "?" in self.path:
+                import urllib.parse as _up
+                want = who_wrote(_up.parse_qs(self.path.split("?", 1)[1]).get("for", [""])[0])
             with JOBS_LOCK:
-                ids = [j["id"] for j in JOBS.values() if j["status"] == "queued"]
-            return self._send(200, {"ids": ids})
+                ids = [j["id"] for j in JOBS.values()
+                       if j["status"] == "queued"
+                       and (not want or job_owner(j) == want)]
+            return self._send(200, {"ids": ids, "for": want or "anyone"})
         if path == "/api/jobs/next":
             # Whoever asks gets the oldest queued job. Fine when one session
             # writes; a race once two do, because neither can say which job it
             # means and each can take the other's. Prefer the addressed claim
             # below, POST /api/job/<id>/claim, whenever the id is known.
+            asking = who_wrote(data.get("by")) if isinstance(data, dict) else ""
             with JOBS_LOCK:
                 pending = sorted(
-                    (j for j in JOBS.values() if j["status"] == "queued"),
+                    (j for j in JOBS.values()
+                     if j["status"] == "queued"
+                     # Only your own jobs are on offer. Without this the oldest
+                     # queued job went to whoever asked first, which is how the
+                     # writer ended up writing a job the person had clicked.
+                     and (not asking or job_owner(j) == asking)),
                     key=lambda j: j["created"],
                 )
                 if not pending:
@@ -2812,7 +3293,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(502, {"error": str(exc)})
             return self._send(200, {"ok": True, **out})
 
-        m = re.fullmatch(r"/api/worker/(bringer|analyzer|writer)/"
+        m = re.fullmatch(r"/api/worker/(bringer|analyzer|writer|manual-writer)/"
                          r"(start|pause|resume|stop|heartbeat|error)", path)
         if m:
             role, action = m.group(1), m.group(2)
@@ -2824,8 +3305,21 @@ class Handler(BaseHTTPRequestHandler):
                 # back the `command_seq` from the previous reply and the panel
                 # can say the order was heard; omit it and the panel says it is
                 # still outstanding, which is the honest reading.
+                # A session naming itself. Checked rather than trusted: if the
+                # name declares a different role, the heartbeat is refused
+                # instead of quietly lighting up the wrong row.
+                sess = str(data.get("session") or "").strip()[:60]
+                if sess:
+                    claims = role_from_session_name(sess)
+                    if claims and claims != role:
+                        return self._send(409, {
+                            "error": f"{sess!r} looks like the {claims}, not the {role}",
+                            "role": role, "session": sess, "declares": claims,
+                            "hint": "heartbeat the role your name says you are"})
                 fields = {"last_seen": time.time(),
                           "current": str(data.get("current") or "")[:160]}
+                if sess:
+                    fields["session"] = sess
                 if "note" in data:
                     fields["note"] = str(data.get("note"))[:200]
                 if data.get("ack") is not None:
@@ -3409,6 +3903,19 @@ class Handler(BaseHTTPRequestHandler):
                 if job["status"] == "done":
                     return self._send(409, {"error": "already written",
                                             "status": "done"})
+                # Whose job is it? A job the person asked for is written in
+                # their own session and the writer must not take it, which is
+                # exactly what happened to job 7d86ddee on 2026-10-14: the
+                # writer polled the queued list, saw a job the person had just
+                # created from the UI, and wrote it. `initiator` existed and
+                # nothing consulted it. Now it decides.
+                asking = who_wrote(data.get("by"))
+                owner = job_owner(job)
+                if asking and asking != owner:
+                    return self._send(409, {
+                        "error": f"this job belongs to the {owner}",
+                        "owner": owner, "asking": asking,
+                        "hint": "the session that asked for a job writes it"})
                 job["status"] = "working"
                 job["claimed_by"] = str(data.get("by") or "").strip()[:40]
                 # Fall back to who asked for the job when the claim did not say.

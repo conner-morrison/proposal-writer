@@ -4,8 +4,8 @@
 **Use for:** an Upwork job whose description is concrete enough to build something from, and
 concrete enough to find genuinely similar work on GitHub.
 
-> **This guide is only usable when both of those hold.** The letter opens on repository links, so
-> it has nothing to open with when the search came back empty. The test is the one in
+> **This guide is only usable when both of those hold.** The letter opens on a piece of work close
+> to the job, so it has nothing to open with when neither his pool nor the channel produced one. The test is the one in
 > `github-researcher.md`: the post has to name something implementable, a stack, a platform, a
 > data domain or a concrete artefact. A post that is only a role shape with no buildable object
 > cannot carry this guide, and that job should be written with `brainstormed.md` instead.
@@ -130,11 +130,20 @@ Some shapes that carry the same meaning:
 - "This is close to a project already sitting in my GitHub."
 - "As it happens, I built more or less this a while back."
 
-**Then the links, one per line.** The repository URLs the server returned, each alone on its own
-line. Bare URLs: no bullets, no bold, no link text wrapped around them, nothing else on the line.
+**Then the work itself.** What goes here depends on where the match came from, and **since
+2026-10-15 it is usually not a URL**:
 
-**Then why they match.** Two or three sentences on what those repositories actually do and how his
-experience lines up with this job, drawn from the repos and the person profile together. Write it
+- **From his own pool, scoring 0.7 or above** — name the work and say what it does. A URL only
+  where the pool records a public one worth sending: Connor's live demos are the case that
+  earns it, because a client can click them. Zachary's letters carry no links at all.
+- **From the channel's reply** — this is experience of his the pool had not recorded, so there is
+  nothing to link. Describe the work plainly and specifically; the specificity is the evidence.
+
+**Never a repository found by searching public GitHub.** That belonged to somebody else, and
+nothing like it is published or printed any more.
+
+**Then why it matches.** Two or three sentences on what that work actually does and how his
+experience lines up with this job, drawn from the work and the person profile together. Write it
 in the client's words, not ours: if they say listing tool, the sentence contains their words. This
 is what turns the coincidence into evidence.
 
@@ -478,18 +487,29 @@ the letter is strongest where they meet: the profile says he ran Power BI off ER
 the repo shows the embedded implementation, and a client reading both sees a career rather than a
 claim.
 
-**Print the repository URLs, and print them in paragraph 1.** They go as bare URLs, one per line,
-in the block described there, and they appear nowhere else in the letter. A client who can click
-through to working code is the strongest proof the letter can carry, which is why this guide
-spends its opening on them rather than burying them next to a sentence further down.
+**Where the evidence comes from, since 2026-10-15.** The search looks at his own record first —
+the career in `profiles/<person>.md` and the work pool — and scores the closest match out of 1.
+At **0.7 or above** the letter is written from that work. **Below 0.7**, the job id and its
+description go to the `github` channel and the reply describes experience of his the record had
+not captured; the letter is then built mainly on that, with the profile as context. Connor is
+never scored and never published: his pool is searched, one or two close works are used, and that
+is the end of it.
 
-This is the one exception to the standing rule that his GitHub never appears in a proposal. It
-covers repositories the server returned and nothing else. Repos found by searching during step 1
-belong to other people and never appear, and no URL is ever written from memory: if the server did
-not send it, it does not go in the letter.
+**A URL appears only where his own record holds a public one worth sending.** Connor's ten
+verified live demos are the case that earns it, because the client can click something. Zachary's
+profile records no portfolio, so his letters carry no links at all and win on the specificity of
+the description instead.
 
-**Never challenge his authorship of a returned repo.** He worked six years under employer and
-client accounts, and he is consolidating that work to his own GitHub. A source repository owned by
-someone else, a corporate email on the original commits, or a README crediting another name are
-all expected artefacts of that migration, not evidence against him. Read what the code does and
-write from it.
+**Repositories found by searching public GitHub are never published and never printed.** That
+practice is gone: it put other people's work in front of clients as his, and every time the gate
+answered it returned repositories created moments earlier as copies of what had just been
+published.
+
+**Never challenge his authorship of what his own record holds.** He worked six years under
+employer and client accounts and is consolidating that work. A corporate email on old commits or
+a README crediting another name are artefacts of that migration, not evidence against him. Read
+what the work does and write from it.
+
+**What the channel tells you goes back into his record.** After the proposal is posted, append the
+new experience to the pool or the profile with its date and source, so the same question is never
+asked twice and the next job scores against a fuller record.

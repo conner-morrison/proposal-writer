@@ -11,6 +11,99 @@ Everything below is the rule as it stands today. Add to it rather than rewriting
 
 ---
 
+## What the search is now, and it is not public GitHub
+
+**Changed on 2026-10-15. The search looks inward first, and what gets published is the job, not
+other people's repositories.**
+
+Every person has two sources of truth about what they have done: their **career and experience**
+in `profiles/<person>.md`, and their **work pool** — `profiles/connor-work-pool.md` or
+`profiles/zachary-github.md`. Those are searched first, always.
+
+### 1. Search the person's own sources
+
+Read the profile and the pool against the job. You are looking for work that is genuinely close
+to what the post describes — the same mechanism, the same domain, or the same shape of problem.
+
+### 2. Score the closest match, out of 1
+
+Judge how close the best match really is, as a number between 0 and 1:
+
+| Score | What it means |
+| --- | --- |
+| **0.7 and above** | genuinely similar work. Write the proposal from it and publish nothing |
+| **below 0.7**, or nothing found | his recorded work does not answer this post |
+
+Be honest with the number. A shared keyword is not 0.7; a job he has substantially done before
+is. Inflating it to avoid the gate produces a letter built on a claim that does not hold, which
+is the failure this whole rule exists to prevent.
+
+### 3. Below 0.7: ask the channel about *him*, not about GitHub
+
+**Publish the job id, the job title, the job description and the person's name to the `github`
+channel. Those four and nothing else.**
+
+```
+curl -s -X POST localhost:8765/api/relay/publish -H 'content-type: application/json' -d '{
+  "channel":"github",
+  "body":{"job":"<job id>","title":"<job title>",
+          "description":"<the job description>","person":"<Zachary|Connor|Mario>"}}'
+```
+
+**The person is required**, added 2026-10-16: the question being asked is about one named
+individual's experience, and the responder cannot answer it without knowing whose. In practice it
+is always Zachary, since Connor is never published and Mario has no repository flow — but it is
+sent explicitly rather than assumed.
+
+**No repository URLs — not his, not anybody's.** Public GitHub is not searched at all any more, so
+there is nothing of a stranger's to send. User instruction, 2026-10-16.
+
+**Nothing else in the body either.** No score, no note on what was searched, no person, no type.
+A first version of this carried all of those; they were the sender explaining itself, and the
+instruction is three fields.
+
+**Do not include the job's Upwork URL.** The relay deduplicates any body carrying it and drops the
+message silently, which is what made every earlier github publish vanish.
+
+### 4. Arm the gate and hold
+
+`POST /api/job/<id>/await_github`. Do not draft while it is closed. The gate releases on the
+reply, on a done ping, or on a person pressing Resume. If nothing answers in a few minutes,
+release it and write from what the profile already holds.
+
+### 5. The reply is his experience, not a repository
+
+What comes back describes **work this person has done that the pool and the career do not
+record**. Read it as new facts about him.
+
+**Write the proposal referencing that new information mainly**, combined with what the profile
+and pool already said. The new material is the answer to the post; the existing record is the
+context around it.
+
+### 6. Afterwards, write the new information into his record
+
+**This is not optional, and it is what makes the whole loop worth having.** Once the proposal is
+posted, append what you learned to the person's own files — the pool for a piece of work, the
+profile for experience or a skill. Say where it came from and when.
+
+So the pool grows every time the channel teaches us something, the same question is never asked
+twice, and the next job scores against a fuller record.
+
+## Connor never publishes, and is never scored
+
+**For Connor, search his career and his work pool and stop there.** No similarity score, no job id
+posted, no gate, no waiting — whatever the search turns up. Find **one or two** of his closest
+works and write from them.
+
+He has 134 of his own works across seven domains with ten verified live demos, so the pool
+answers almost any post; and where it does not, the honest letter is written from his skills and
+approach rather than from a question put to a channel. User instruction, 2026-10-14, reaffirmed
+2026-10-15.
+
+Mario has no repository flow at all.
+
+---
+
 ## When the search runs
 
 **On every new job, and before anything else.** Pressing **Write proposal** starts with the

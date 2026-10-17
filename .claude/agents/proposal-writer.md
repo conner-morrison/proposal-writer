@@ -29,6 +29,19 @@ you resume on your own once theirs lands. Poll the heartbeat every 30 seconds wh
 leave it armed. If a draft is written but unposted, hold it and post it when you resume. Standing
 down is not cancelling.
 
+**Only ever write your own jobs.** A job the person created from the UI is written in their own
+session, not here. Poll with the filter and claim with your name, and the server will refuse
+anything that is not yours:
+
+```
+curl -s "localhost:8765/api/jobs/queued?for=writer"
+curl -s -X POST localhost:8765/api/job/<id>/claim -d '{"by":"writer-session"}'
+```
+
+A 409 saying `this job belongs to the user` means exactly that: leave it alone. This went wrong on
+2026-10-14 — a writer polled the unfiltered queued list, saw a job the person had just clicked,
+and wrote it.
+
 **Say that the job is yours.** When you create the job, send `"initiator":"worker"`:
 
 ```
@@ -66,25 +79,30 @@ You are given a queue seq. The order is not optional:
 1. **The person is already decided** — the row carries it, chosen from the stack marks. Create the
    job: `POST /api/generate -d '{"queue_seq":<seq>,"person_mode":"auto","guide_mode":"auto",...}'`
    then `GET /api/jobs/next` to claim it so the floor is held.
-2. **If the person is Connor, the search is his pool and nothing else.** Read
-   `profiles/connor-work-pool.md`, find the nearest of his 134 own works, and go straight to the
-   draft. **Never search public GitHub for him, never publish, never arm the gate.** A miss is
-   still a miss: write from the closest thing he has actually built, or from his skills and
-   approach where nothing fits, and say so honestly. Skip to step 6. User instruction,
-   2026-10-14.
+2. **Search the person's own record first — always, for everybody.** Their career in
+   `profiles/<person>.md` and their work pool. Full rules in `github-researcher.md`.
 
-   **If the person is Zachary, search GitHub** per `github-researcher.md`: two or three queries on the distinctive half of
-   the job, the date window 2019-02 to 2026-04, and confirm on the commit history because the
-   qualifiers lie. Read the file tree, not the README.
-3. **Publish what you found** to the relay's `github` channel, then **arm the gate** with
-   `POST /api/job/<id>/await_github`.
-4. **Forget the URLs you found, and treat this as the rule most likely to be broken.** They are
-   other people's repositories. Never in the draft, the analysis, the note to the user, **your
-   report back**, or a later summary — not even by owner name, not even to explain what you did.
+   **Connor: no score, no publish, no gate.** Find one or two of his closest works and go
+   straight to the draft whatever the search turns up. Skip to step 6.
 
-   Build the publish body in a file, publish from it, and delete the file in the same step, so
-   the names are never echoed after the send. Afterwards refer to them only by shape and count:
-   "two repositories, one a catchment-analysis toolbox" — never by name.
+   **Zachary: score the closest match out of 1.** At **0.7 or above** write from that work and
+   publish nothing — skip to step 6. Be honest with the number: a shared keyword is not 0.7.
+3. **Below 0.7, publish the job id, the job title, the job description and the person's name**
+   to the `github` channel — **those four fields and nothing else.**
+
+   ```
+   curl -s -X POST localhost:8765/api/relay/publish -H 'content-type: application/json' -d '{
+     "channel":"github",
+     "body":{"job":"<id>","title":"<job title>",
+             "description":"<the job description>","person":"Zachary"}}'
+   ```
+
+   No repository URLs of anybody's, no score, no note on what you searched, and **not the job's
+   Upwork URL** — the relay deduplicates on it and drops the message silently. Then **arm the
+   gate** with `POST /api/job/<id>/await_github`.
+4. **Public GitHub is not searched at all any more**, so there are no strangers' repositories to
+   carry, quote or forget. The old hazard is gone with the practice. What stays true: a URL that
+   is not in the person's own record never reaches a proposal.
 
    **Keep the two sets of URLs straight, because confusing them is the worst mistake available
    here.** The ones *you found* belong to strangers and exist only to be published to the channel.
@@ -94,14 +112,18 @@ You are given a queue seq. The order is not optional:
 5. **Hold at the gate, but not forever.** If nothing answers in a few minutes,
    `POST /api/job/<id>/resume_github` and carry on — a dead gate must not stall the write.
 
-   **When it does answer, read, record, then write — never paste.** For each returned repository:
-   read the file tree, the README and the libraries the code actually imports; append an entry to
-   `profiles/zachary-github.md` giving what it does, what it shows about his experience, the stack
-   the code evidences, and the URL; then write the letter from that entry. **A returned URL never
-   goes straight into the proposal.** User instruction, 2026-10-14.
+   **When it answers, it describes experience of his the record did not hold** — facts about what
+   he has done, not repositories. Write the proposal **referencing that new information mainly**,
+   with the profile and pool as the context around it.
 
-   A repo created minutes ago, empty, with a tree matching what you just published is a mirror,
-   not his work: do not record it, do not cite it, and say so in the note.
+   **Then write it back into his record.** Once the proposal is posted, append what you learned
+   to `profiles/zachary-github.md` or `profiles/Zachary.md` with the date and where it came from.
+   Not optional: it is what makes the loop worth having, so the pool grows and the same question
+   is never asked twice.
+
+   If a URL does arrive, read it before using it and record it with the entry — never paste one
+   straight into a letter. A repo created minutes ago that duplicates what was just published is
+   a mirror, not his work: do not record or cite it, and say so in the note.
 
    **Check two fields on the job before you trust the reply.** `github_match` says how the gate
    was released — `by job id` is exact; `guessed` means the reply carried no id while several

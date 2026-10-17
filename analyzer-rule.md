@@ -12,6 +12,14 @@ This file holds only the judgement: what to look at, and what to conclude.
 from the `upwork` and `vollna` alerts are not analysed, and nothing about writing a proposal is
 involved: the analysis happens before anyone decides whether to bid.
 
+**Two producers play the general-vollna-search role, and they are treated identically.** The
+original, relay worker `w-56bd725cbcd05de7243460abbd797240`, and **`vollna-scraper`**,
+`w-f55a0da9e1d62940e731f688cd727774`, confirmed by the user on 2026-10-15 as doing exactly the
+same job. A row from either is analysed on arrival, announced to Hungry once a verdict exists, and
+written without being asked when the decision is `bid`. They are recognised **by sender** as well
+as by what the body claims, so a scraper that forgets its `source` field is still handled
+correctly.
+
 **The whole of this file applies to the general vollna search and to nothing else.** That means the
 analysis, the stack marks, the Telegram message, **and the power to drop a job instead of writing
 it.** A row qualifies when its body carries `type: job-decision` or a `source` of
@@ -177,7 +185,9 @@ an unanalysed row was tried on 2026-10-13 and removed the same day for exactly t
 boost-due alarms. Two bots so the phone tells a job worth reading from a proposal worth sending
 without either being opened. Never send job info on the proposal bot.
 
-**The work history is cut out before sending, and the server does it for you.** The feed appends
+**Everything the feed appends is cut out before sending, and the server does it for you.** The
+work history, the project info block, the client block and the screening questions all go; the
+message carries the posting and nothing else. The feed appends
 the client's past contracts to the end of the description, so sending it raw sends fifty contracts
 with it and buries the job in the client's past. `telegram_job_analysed` truncates at the
 `Work history (N past contracts):` header. This was a rule the code did not honour until

@@ -38,7 +38,8 @@ Files in this folder:
 | `ui/index.html` | Front end: pick a guide, pick a person, paste a JD, get copy-ready output |
 | `.claude/commands/queue-worker.md` | `/queue-worker` — turns a session into the queue worker: analyse arrivals, write the `bid` ones, one at a time |
 | `.claude/agents/queue-analyst.md` | Triage one row. **Haiku**, because it is rule-driven and most rows drop |
-| `.claude/agents/proposal-writer.md` | Write one proposal end to end. **Opus**, because a paying stranger reads it |
+| `.claude/agents/proposal-writer.md` | Write one proposal end to end for the queue. **Opus**, because a paying stranger reads it |
+| `.claude/agents/manual-writer.md` | Write the proposal a person clicked for. **Opus**. Carries no rules of its own, so the project is its single source |
 | `proposals/` | Local archive, one markdown file per proposal, plus the images. **Gitignored** |
 | `server.py` | Local server behind the UI. Start it with `./run-ui.sh` |
 | `milestone-template.html` | Starting point for `proposals/milestones.jpg` |
@@ -266,7 +267,19 @@ with their status and a Start, Pause, Resume and Stop button each.
 | --- | --- | --- | --- |
 | **bringer** | holds the long poll on the relay, saves each arrival as a queue row | a **thread in the server** | — |
 | **analyzer** | works queue rows in order: marks, person, client name | a Claude session | haiku |
-| **writer** | writes proposals end to end | a Claude session | opus |
+| **writer** | writes proposals for the queue, from a `bid` decision | a Claude session | opus |
+| **manual-writer** | writes the proposal when a person presses **Write proposal** | a Claude session | opus |
+
+**Two writers, and a job belongs to whoever asked for it.** `initiator` is recorded at creation
+and never changes: a job from the UI belongs to the **manual-writer**, a job the queue writer
+created for itself belongs to the **writer**. The server enforces it — `?for=<role>` filters the
+queued list and the claim answers 409 on anything the asker does not own — because on 2026-10-14
+the queue writer polled the unfiltered list, found a job a person had just clicked, and wrote it.
+
+**The two writers follow the same rules.** `manual-writer.md` deliberately contains no
+proposal-writing rules of its own: it points at `CLAUDE.md`, `decision-maker.md`,
+`github-researcher.md`, the profiles and the guides, and reads them on every run. So updating a
+rule in this project updates both writers, with nothing to fall out of date.
 
 **Five states, and the signal never flatters.** A role with nothing behind it reads **off**, not
 running, whatever intent is stored against it — claiming "running" for a role no session had ever
@@ -292,6 +305,24 @@ Claude session.
 with a one-line reason turns the signal red, stops the role, and rings **Night Fury** once —
 machinery alarms are not job info, so Hungry never hears them. Resume clears the error, on the
 assumption a person has looked.
+
+**Each role names the session behind it.** A heartbeat carries `"session":"<name>"` and the panel
+prints it beside the role, so "who is doing this" is recorded rather than inferred from the role
+name. The link is **checked, not trusted**: a session whose name declares a different role gets a
+409 and is not recorded, so a row can never light up for the wrong worker.
+
+| Role | Session | Runs as |
+| --- | --- | --- |
+| **bringer** | none — it is a thread in this process | the server |
+| **analyzer** | `analyzer-session` | a Claude session |
+| **writer** | `auto-writer-session` | a Claude session |
+| **manual-writer** | `manual-writer-session` | a Claude session |
+
+The expected name per role is `WORKER_SESSION` in `server.py`, and the role a name declares is
+derived by `role_from_session_name()` rather than matched literally — so renaming
+`writer-session` to `auto-writer-session` does not break the link. Sessions are named with
+`claude --name <name>` at launch or `/rename <name>` while running, and
+`~/.claude/sessions/<pid>.json` maps a live pid to its name.
 
 **Only the bringer really starts and stops**, because it is the only one inside this process.
 Paused or stopped it does not poll at all, so no new rows arrive. The other two are sessions, so
@@ -356,13 +387,19 @@ nothing in it is optional.
    person** in `decision-maker.md` and post it to `/api/job/<id>/person`. This is step zero
    because the search in step 1 is not the same search for every person — Connor's own work pool
    is read first, Zachary's is not.
-1. **Read the job description and search GitHub** for one or two projects genuinely close to it.
-   This comes before the full analysis and before any drafting, on every new job id including a
-   rerun of a post already searched.
-2. **Post the job id and the URLs found** to the relay's `github` channel. The UI shows them above
-   the status bar as a checklist with unticked boxes.
-3. **Drop those URLs from working context, and this has been got wrong repeatedly.** Once they
-   are on the server they belong to the server. They were other people's repositories.
+1. **Search the person's own record** — their career in `profiles/<person>.md` and their work
+   pool — for work genuinely close to the job, and **score the closest match out of 1**. This
+   comes before the full analysis and before any drafting, on every new job id. Changed on
+   2026-10-15: the search no longer starts on public GitHub, and no repository of anybody else's
+   is ever published or printed again.
+2. **At 0.7 or above, write from that work and publish nothing.** **Below 0.7, or nothing found**,
+   post the **job id, the job title, the job description and the person's name** to the relay's
+   `github` channel — those four fields and nothing else. Never repository URLs, never a score or a note explaining
+   the search, and never the job's Upwork URL, which the relay deduplicates on and drops.
+3. **Nothing of anybody else's is carried forward, because nothing of anybody else's is found.**
+   The old step here was about forgetting repositories discovered by public search; that search
+   is gone, so the hazard is gone with it. What follows stays true of any URL that is not in the
+   person's own record.
 
    **"Forget them" means every one of these, not just the proposal:**
 
@@ -388,8 +425,15 @@ nothing in it is optional.
 4. **Hold at the gate.** Arming it presses Pause and sets the status line to *waiting for github
    reply*. Do not draft while the gate is closed. **Nothing found means no publish, no gate, no
    pause** — go straight to step 6.
-5. **The server answers with GitHub URLs, and those go into his pool before they go anywhere
-   near the letter.** On the user's instruction of 2026-10-14: **never paste a returned URL
+5. **The reply describes experience of his that the record did not hold.** Not repositories —
+   facts about what this person has done. Write the proposal **referencing that new information
+   mainly**, with the profile and pool as the context around it. Then, once the proposal is
+   posted, **append what you learned to his own files** — the pool for a piece of work, the
+   profile for a skill or an experience — with the date and where it came from. That is what
+   makes the loop worth having: the record grows, the same question is never asked twice, and
+   the next job scores against a fuller picture.
+
+   The older instruction below still governs any URL that does arrive: On the user's instruction of 2026-10-14: **never paste a returned URL
    straight into the proposal.** The order is read, record, then write:
 
    a. **Read each repository properly** — the file tree, the README, and the libraries actually
@@ -537,28 +581,34 @@ step of that attempt rather than a cached input to it.
 **The only thing that does not search is a revision of the same job id** after answers come back
 from the questions panel, which rewrites an existing letter rather than making a new attempt.
 
-**The sequence, in order:**
+**The sequence, in order.** Rewritten 2026-10-15: the search looks inward and the channel is
+asked about the person, never about repositories.
 
-1. **Search GitHub** for one or two repositories genuinely close to what the job describes.
-2. **Publish the result** to the relay's `github` channel — the job id, the job title, and the
-   URLs found.
-3. **Forget the URLs you sent.** They are on the server now, and nothing you found in the search
-   is allowed into the proposal.
-4. **If repositories were found, stop and wait.** Arm the gate, which makes the UI show the
-   Pause button as pressed with Resume available, and the status line read *waiting for github
-   reply*. Do not draft while the gate is closed.
-5. **Read what comes back and write from it.** The server answers with Zachary's own repository
-   URLs. Those are his portfolio, and the proposal is written against them.
-6. **If the description could not carry a search, send nothing and keep going.** No publish, no
-   gate, no pause: write the proposal immediately. The channel only ever hears about jobs that
-   produced repositories, so a message arriving there always carries something to look at.
+1. **Search the person's own record** — their career in `profiles/<person>.md` and their work
+   pool — for work genuinely close to the job.
+2. **Score the closest match out of 1.** Honestly: a shared keyword is not 0.7, a job he has
+   substantially done before is.
+3. **0.7 or above: write from that work.** No publish, no gate, no waiting.
+4. **Below 0.7, or nothing found: publish the job id, the job title, the job description and the
+   person's name** to the `github` channel — **those four and nothing else.** The question is
+   about one named person's experience, so the responder has to be told whose. No repository URLs, no score, no
+   explanation of what was searched, and not the job's Upwork URL, which the relay drops as a
+   duplicate. Then arm the gate and hold; the UI shows Pause pressed and the status line reads
+   *waiting for github reply*.
+5. **The reply is his experience, not repositories.** Write the proposal referencing that new
+   information mainly, with the profile and pool as context.
+6. **Afterwards, append what you learned to his record** — the pool for a piece of work, the
+   profile for a skill — with the date and its source. The record grows, and the same question
+   is never asked twice.
+7. **Connor is never scored and never published.** Search his career and pool, take one or two
+   of his closest works, and write. Whatever the search turns up, there is no gate for him.
 
 ```
-# 2. found one or two
+# 4. the best match scored below 0.7, so send the job. Four fields, nothing else.
 curl -s -X POST localhost:8765/api/relay/publish -H 'content-type: application/json' -d '{
   "channel":"github",
-  "body":{"type":"github_refs","job":"<id>","title":"<job title>","upworkUrl":"<if any>",
-          "repos":[{"url":"https://github.com/owner/name","why":"one line on the overlap"}]}}'
+  "body":{"job":"<id>","title":"<job title>",
+          "description":"<the job description>","person":"Zachary"}}' '
 
 # 3. then hold, and wait for the channel to answer
 curl -s -X POST localhost:8765/api/job/<id>/await_github -H 'content-type: application/json' -d '{
@@ -664,9 +714,40 @@ directly and the queue is unused.
 it: the `upwork` and `vollna` alerts are not analysed, and this happens before any decision to bid,
 so it is separate from writing a proposal.
 
+**The mark comes from the sender, not from what the body claims.** `source_for_sender()` decides
+it, and the order matters:
+
+| Mark | Sender | What happens |
+| --- | --- | --- |
+| **search** | the general vollna search producers, listed in `SEARCH_SENDERS` | analysed on arrival, Hungry told, `bid` written unasked |
+| **vollna** | a Vollna **alert** bot such as `zachary-upwork-vollna-alert` — it watches a saved search and forwards matches with no verdict | never analysed |
+| **upwork** | Upwork's own notification and invitation feeds | never analysed |
+
+`zachary-upwork-vollna-alert` contains both words and is a **Vollna alert**, so vollna is tested
+first — corrected on 2026-10-15, along with six rows that had been marked `upwork`.
+
+**An unknown sender gets no mark at all, never `search`.** Defaulting to the search feed is how
+seq 930, a Vollna alert, came to be marked `search`: the `fields` reader defaulted the source
+instead of deriving it, and a `search` mark is what puts a row into the automatic
+analyse-and-write path.
+
+**Two producers are the general vollna search.** The original relay worker and
+**`vollna-scraper`** (`w-f55a0da9e1d62940e731f688cd727774`), confirmed on 2026-10-15 as playing
+the same role. Both are listed in `SEARCH_SENDERS` and recognised **by sender**, not only by the
+`source` their body carries, so either one's rows get the full automatic treatment even if the
+label is missing. Everything below about "the search feed" means both of them.
+
 **Everything automatic belongs to the general vollna search alone.** The analysis, the stack
 marks, the drop, **and writing the proposal.** Nothing fires by itself for a job from any other
 feed.
+
+**A job that does not look like a job raises an alarm now.** A message on the `jobs` channel from
+a known search producer that fails the job-shape test is logged loudly and announced on Night
+Fury, because it is a bug rather than a conversation. Seq 861 on 2026-10-15 was a real job from
+`vollna-scraper` that sat on the Report page for hours: its keys were the capitalised shape
+(`Job title`, `Job link`) and normalisation had been skipped, because `"search"` — the value
+normalisation *writes* — was missing from the set of values it reads. The body is kept on the
+thread either way, so such a message can always be recovered into a row.
 
 **A queued row is not a request to write it.** The server's own `relay_pull` keeps *every*
 message on the `jobs` channel as a queue row: the `upwork` and `vollna` alerts, and anything else
@@ -777,6 +858,7 @@ off it, both on Night Fury, both once per job:
 
 | Alarm | Fires when | Message |
 | --- | --- | --- |
+| **Proposal done** | a `/result` lands with proposal text | *Proposal done* (or *rewritten*) + the title + **who it is for**, and who wrote it + the link |
 | **Still writing** | 8 minutes (`WRITE_SLOW_AFTER`) since writing started and there is still no proposal | *Still writing* + how long + the status, and it says so when the job is held at the github gate |
 | **Failed to write proposal** | a `/result` came back with no proposal text, or a job reached `done` with an empty one | *Failed to write proposal* + what went wrong + the status |
 
@@ -804,7 +886,7 @@ Telegram round trip must not hold up every other request, which is why an empty 
 
 | Bot | Token in `.env` | Carries |
 | --- | --- | --- |
-| **Night Fury** `@hiro_upwork_handler_bot` | `TELEGRAM_BOT_TOKEN` | proposal done, boost due |
+| **Night Fury** `@hiro_upwork_handler_bot` | `TELEGRAM_BOT_TOKEN` | proposal done, boost due, a stalled or failed write, a worker in error |
 | **Hungry** `@hiro_upwork_bot` | `TELEGRAM_JOBS_BOT_TOKEN` | job info from the analyzer |
 
 The split is the point: the bot a message arrives from says whether it is a job worth reading or a
@@ -817,10 +899,22 @@ the analysis handler, which is the only place job info is sent, and announced **
 `notified_jobs` on the row. `POST /api/queue/<seq>/analyze -d '{"redo":true}'` clears that flag,
 so a re-analysis whose verdict changed can announce afresh.
 
-Two messages, in this order: the headline (title, **stack marks and the person they chose**,
-budget, client rank and location, **the client's name** where there is one, the link) so the
-notification preview carries the verdict, then the posting on its own so it reads and forwards
-cleanly.
+One message. The headline carries the title, then the verdict on one line — **the stack marks,
+the person they chose and the producer's decision** — then the budget, the client's rank and
+location, **the client's name** where there is one, and the link. The posting follows underneath,
+**and only the posting**: the work history, the project
+info block, the client block and the screening questions are all cut off the end, at whichever of
+them comes first. Each has its own home — the queue card and its history and screening buttons —
+and in a phone message they only bury the job. User instruction, 2026-10-15; before it the
+message carried the whole description, up to 13,700 characters of which 11,000 was apparatus.
+
+**The decision is the most actionable part**, which is why it sits on the verdict line: `bid`
+means the auto writer will write this one unasked, `manual check` and `skip` mean it waits for a
+person.
+
+**The producer's reason is not sent.** It was added beside the decision on 2026-10-14 and removed
+the same day: the message is for judging a job at a glance, and the reasoning lives on the queue
+card and in the stored analysis for anybody who wants it.
 
 **Those three facts are why it fires here and not on arrival.** Whether the job is dropped is
 expressed by the message existing at all; the person comes straight out of the marks; the client's
